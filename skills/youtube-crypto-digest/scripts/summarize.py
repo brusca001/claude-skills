@@ -21,7 +21,7 @@ def summarize_video(title: str, content: str) -> str:
     if not content.strip():
         return "(no transcript available — description too short to summarize)"
     prompt = PROMPT.format(title=title, content=content[:8000])
-    return chat([{"role": "user", "content": prompt}], max_tokens=400)
+    return chat([{"role": "user", "content": prompt}])
 
 
 if __name__ == "__main__":

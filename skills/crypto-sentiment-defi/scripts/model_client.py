@@ -19,7 +19,7 @@ except ImportError:
 BACKENDS = {
     "moonshot": {
         "base_url": "https://api.moonshot.ai/v1",
-        "default_model": "moonshot/kimi-k2.5",
+        "default_model": "kimi-k2.5",
         "key_env": "MOONSHOT_API_KEY",
     },
     "openrouter": {
@@ -30,7 +30,10 @@ BACKENDS = {
 }
 
 
-def chat(messages, backend: str = None, model: str = None, max_tokens: int = 1024, temperature: float = 0.3) -> str:
+def chat(messages, backend: str = None, model: str = None, max_tokens: int = 3000, temperature: float = 1.0) -> str:
+    # kimi-k2.5 only accepts temperature=1 ("invalid temperature: only 1 is allowed for this model")
+    # kimi-k2.5 is a reasoning model — it spends tokens on hidden reasoning_content before the
+    # visible "content" field, so max_tokens needs real headroom or content comes back empty.
     """Returns the assistant's text reply. Raises on failure — caller decides fallback behavior."""
     backend = backend or os.environ.get("MODEL_BACKEND", "moonshot")
     cfg = BACKENDS[backend]

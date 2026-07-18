@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+data/
+!skills/hyperliquid-backtest/data/
+!skills/hyperliquid-backtest/data/**

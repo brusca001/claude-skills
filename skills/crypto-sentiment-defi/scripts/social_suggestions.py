@@ -38,7 +38,7 @@ def build_snapshot_text(results: dict, top_n: int = 8) -> tuple[str, str]:
 def generate_drafts(results: dict) -> dict:
     snapshot, spikes_text = build_snapshot_text(results)
     prompt = PROMPT_TEMPLATE.format(snapshot=snapshot, spikes=spikes_text)
-    raw = chat([{"role": "user", "content": prompt}], max_tokens=600)
+    raw = chat([{"role": "user", "content": prompt}])
     try:
         drafts = json.loads(raw.strip().strip("`").removeprefix("json").strip())
     except (json.JSONDecodeError, AttributeError):

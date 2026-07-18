@@ -11,10 +11,24 @@ NOT done here — see SKILL.md. Those need an agent's search tool, not a bespoke
 Python HTTP client, and are more reliable done that way.
 """
 
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+
+
+def _load_env():
+    env_path = Path(__file__).parent.parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_env()
 
 from fetch_mentions import search_keyword
 from sentiment_analyzer import analyze_all_keywords
