@@ -35,7 +35,11 @@ Run these in order. Steps 1-3 and 6 are mechanical (Python scripts, deterministi
 
 5. **One Twitter-thread-style record**, same call with `table_type="threads"` — same fields, goes to the Twitter Threads table instead.
 
-6. **Deliver the brief**: send `run_daily.py`'s stdout brief via the existing local `telegram` skill (`/telegram <brief>`, remembering the mandatory `@MrJoben_bot` prefix) — don't rebuild Telegram integration.
+6. **Deliver the brief**: locally, send `run_daily.py`'s stdout brief via the existing local `telegram` skill (`/telegram <brief>`) — don't rebuild Telegram integration there. In a `/schedule` cloud routine (no access to the local `telegram` skill), pipe it through `scripts/send_telegram.py` instead, using `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`.
+
+## Cloud routine vs local run — X/Twitter monitoring
+
+**X session cookies (`X_AUTH_TOKEN`/`X_CT0`) are never embedded in the `/schedule` routine** — they grant full account access if ever leaked from a stored cloud prompt, unlike the other credentials here. The cloud routine runs `run_daily.py` **without** those env vars set, which degrades gracefully (already verified): `fetch_mentions.py` returns 0 mentions per keyword instead of crashing, sentiment scoring still runs (on empty data), and social drafts still generate from whatever DeFi news was found that day. Live X sentiment data only flows in when you run this locally, where the cookies stay in your local `.env` and never touch Anthropic's cloud.
 
 ## Never do this
 
