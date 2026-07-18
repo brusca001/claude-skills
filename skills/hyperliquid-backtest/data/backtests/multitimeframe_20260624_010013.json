@@ -1,0 +1,415 @@
+{
+  "summary": [
+    {
+      "symbol": "SOL",
+      "timeframe": "15m",
+      "strategy": "MA Crossover",
+      "return": 10.339822933649325,
+      "trades": 39,
+      "win_rate": 41.02564102564102
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "15m",
+      "strategy": "RSI Mean Reversion",
+      "return": 5.959351001762567,
+      "trades": 7,
+      "win_rate": 85.71428571428571
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "1h",
+      "strategy": "MA Crossover",
+      "return": 5.227643094300998,
+      "trades": 17,
+      "win_rate": 52.94117647058824
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "5m",
+      "strategy": "RSI Mean Reversion",
+      "return": 4.892279485377346,
+      "trades": 18,
+      "win_rate": 72.22222222222221
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "15m",
+      "strategy": "RSI Mean Reversion",
+      "return": 4.802746432443913,
+      "trades": 8,
+      "win_rate": 75.0
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "15m",
+      "strategy": "RSI Mean Reversion",
+      "return": 4.143755338759561,
+      "trades": 12,
+      "win_rate": 83.33333333333334
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "15m",
+      "strategy": "MA Crossover",
+      "return": -2.2641258820159784,
+      "trades": 38,
+      "win_rate": 31.57894736842105
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "5m",
+      "strategy": "RSI Mean Reversion",
+      "return": -2.737706187990964,
+      "trades": 14,
+      "win_rate": 78.57142857142857
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "5m",
+      "strategy": "MA Crossover",
+      "return": -2.804088650734677,
+      "trades": 55,
+      "win_rate": 34.54545454545455
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "1h",
+      "strategy": "MA Crossover",
+      "return": -3.069267880867206,
+      "trades": 22,
+      "win_rate": 31.818181818181817
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "1h",
+      "strategy": "RSI Mean Reversion",
+      "return": -3.08012491944059,
+      "trades": 5,
+      "win_rate": 40.0
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "5m",
+      "strategy": "MA Crossover",
+      "return": -3.2224194897687988,
+      "trades": 52,
+      "win_rate": 38.46153846153847
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "4h",
+      "strategy": "MA Crossover",
+      "return": -4.898819830988693,
+      "trades": 4,
+      "win_rate": 25.0
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "4h",
+      "strategy": "RSI Mean Reversion",
+      "return": -4.96172340185639,
+      "trades": 2,
+      "win_rate": 50.0
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "5m",
+      "strategy": "RSI Mean Reversion",
+      "return": -4.991662634845656,
+      "trades": 14,
+      "win_rate": 57.14285714285714
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "1h",
+      "strategy": "RSI Mean Reversion",
+      "return": -5.065792290616345,
+      "trades": 5,
+      "win_rate": 60.0
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "1h",
+      "strategy": "RSI Mean Reversion",
+      "return": -5.443597878836262,
+      "trades": 6,
+      "win_rate": 83.33333333333334
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "5m",
+      "strategy": "MA Crossover",
+      "return": -5.966240974076902,
+      "trades": 58,
+      "win_rate": 29.310344827586203
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "4h",
+      "strategy": "MA Crossover",
+      "return": -6.008703936508276,
+      "trades": 3,
+      "win_rate": 0.0
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "4h",
+      "strategy": "RSI Mean Reversion",
+      "return": -8.751409387534945,
+      "trades": 2,
+      "win_rate": 50.0
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "4h",
+      "strategy": "RSI Mean Reversion",
+      "return": -10.75184932365602,
+      "trades": 1,
+      "win_rate": 0.0
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "4h",
+      "strategy": "MA Crossover",
+      "return": -12.052832333434647,
+      "trades": 5,
+      "win_rate": 0.0
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "1h",
+      "strategy": "MA Crossover",
+      "return": -13.24710736195266,
+      "trades": 20,
+      "win_rate": 20.0
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "15m",
+      "strategy": "MA Crossover",
+      "return": -18.379422605014472,
+      "trades": 47,
+      "win_rate": 29.78723404255319
+    }
+  ],
+  "all_results": [
+    {
+      "symbol": "BTC",
+      "timeframe": "5m",
+      "data_points": 2016,
+      "ma_crossover": {
+        "trades": 52,
+        "win_rate": 38.46153846153847,
+        "total_return": -3.2224194897687988,
+        "avg_trade": -0.061969605572476896
+      },
+      "rsi_mean_reversion": {
+        "trades": 18,
+        "win_rate": 72.22222222222221,
+        "total_return": 4.892279485377346,
+        "avg_trade": 0.27179330474318586
+      },
+      "timestamp": "2026-06-24T01:00:06.344126"
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "15m",
+      "data_points": 1345,
+      "ma_crossover": {
+        "trades": 38,
+        "win_rate": 31.57894736842105,
+        "total_return": -2.2641258820159784,
+        "avg_trade": -0.05958226005305206
+      },
+      "rsi_mean_reversion": {
+        "trades": 8,
+        "win_rate": 75.0,
+        "total_return": 4.802746432443913,
+        "avg_trade": 0.6003433040554891
+      },
+      "timestamp": "2026-06-24T01:00:07.114106"
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "1h",
+      "data_points": 721,
+      "ma_crossover": {
+        "trades": 20,
+        "win_rate": 20.0,
+        "total_return": -13.24710736195266,
+        "avg_trade": -0.662355368097633
+      },
+      "rsi_mean_reversion": {
+        "trades": 6,
+        "win_rate": 83.33333333333334,
+        "total_return": -5.443597878836262,
+        "avg_trade": -0.907266313139377
+      },
+      "timestamp": "2026-06-24T01:00:07.527592"
+    },
+    {
+      "symbol": "BTC",
+      "timeframe": "4h",
+      "data_points": 181,
+      "ma_crossover": {
+        "trades": 3,
+        "win_rate": 0.0,
+        "total_return": -6.008703936508276,
+        "avg_trade": -2.0029013121694255
+      },
+      "rsi_mean_reversion": {
+        "trades": 1,
+        "win_rate": 0.0,
+        "total_return": -10.75184932365602,
+        "avg_trade": -10.75184932365602
+      },
+      "timestamp": "2026-06-24T01:00:07.803288"
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "5m",
+      "data_points": 2016,
+      "ma_crossover": {
+        "trades": 58,
+        "win_rate": 29.310344827586203,
+        "total_return": -5.966240974076902,
+        "avg_trade": -0.10286622369098107
+      },
+      "rsi_mean_reversion": {
+        "trades": 14,
+        "win_rate": 78.57142857142857,
+        "total_return": -2.737706187990964,
+        "avg_trade": -0.19555044199935456
+      },
+      "timestamp": "2026-06-24T01:00:09.115117"
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "15m",
+      "data_points": 1344,
+      "ma_crossover": {
+        "trades": 47,
+        "win_rate": 29.78723404255319,
+        "total_return": -18.379422605014472,
+        "avg_trade": -0.39105154478754195
+      },
+      "rsi_mean_reversion": {
+        "trades": 7,
+        "win_rate": 85.71428571428571,
+        "total_return": 5.959351001762567,
+        "avg_trade": 0.8513358573946525
+      },
+      "timestamp": "2026-06-24T01:00:09.773566"
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "1h",
+      "data_points": 720,
+      "ma_crossover": {
+        "trades": 22,
+        "win_rate": 31.818181818181817,
+        "total_return": -3.069267880867206,
+        "avg_trade": -0.1395121764030548
+      },
+      "rsi_mean_reversion": {
+        "trades": 5,
+        "win_rate": 40.0,
+        "total_return": -3.08012491944059,
+        "avg_trade": -0.616024983888118
+      },
+      "timestamp": "2026-06-24T01:00:10.165644"
+    },
+    {
+      "symbol": "ETH",
+      "timeframe": "4h",
+      "data_points": 181,
+      "ma_crossover": {
+        "trades": 5,
+        "win_rate": 0.0,
+        "total_return": -12.052832333434647,
+        "avg_trade": -2.4105664666869293
+      },
+      "rsi_mean_reversion": {
+        "trades": 2,
+        "win_rate": 50.0,
+        "total_return": -8.751409387534945,
+        "avg_trade": -4.375704693767473
+      },
+      "timestamp": "2026-06-24T01:00:10.407603"
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "5m",
+      "data_points": 2017,
+      "ma_crossover": {
+        "trades": 55,
+        "win_rate": 34.54545454545455,
+        "total_return": -2.804088650734677,
+        "avg_trade": -0.05098343001335776
+      },
+      "rsi_mean_reversion": {
+        "trades": 14,
+        "win_rate": 57.14285714285714,
+        "total_return": -4.991662634845656,
+        "avg_trade": -0.356547331060404
+      },
+      "timestamp": "2026-06-24T01:00:11.622198"
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "15m",
+      "data_points": 1345,
+      "ma_crossover": {
+        "trades": 39,
+        "win_rate": 41.02564102564102,
+        "total_return": 10.339822933649325,
+        "avg_trade": 0.2651236649653673
+      },
+      "rsi_mean_reversion": {
+        "trades": 12,
+        "win_rate": 83.33333333333334,
+        "total_return": 4.143755338759561,
+        "avg_trade": 0.3453129448966301
+      },
+      "timestamp": "2026-06-24T01:00:12.255187"
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "1h",
+      "data_points": 721,
+      "ma_crossover": {
+        "trades": 17,
+        "win_rate": 52.94117647058824,
+        "total_return": 5.227643094300998,
+        "avg_trade": 0.3075084173118234
+      },
+      "rsi_mean_reversion": {
+        "trades": 5,
+        "win_rate": 60.0,
+        "total_return": -5.065792290616345,
+        "avg_trade": -1.013158458123269
+      },
+      "timestamp": "2026-06-24T01:00:12.640122"
+    },
+    {
+      "symbol": "SOL",
+      "timeframe": "4h",
+      "data_points": 181,
+      "ma_crossover": {
+        "trades": 4,
+        "win_rate": 25.0,
+        "total_return": -4.898819830988693,
+        "avg_trade": -1.2247049577471731
+      },
+      "rsi_mean_reversion": {
+        "trades": 2,
+        "win_rate": 50.0,
+        "total_return": -4.96172340185639,
+        "avg_trade": -2.480861700928195
+      },
+      "timestamp": "2026-06-24T01:00:12.890525"
+    }
+  ],
+  "timestamp": "2026-06-24T01:00:13.053585"
+}

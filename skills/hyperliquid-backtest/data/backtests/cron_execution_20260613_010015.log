@@ -1,0 +1,69 @@
+🔄 MULTI-TIMEFRAME HYPERLIQUID BACKTEST - CRON EXECUTION LOG
+================================================================
+
+Timestamp: 2026-06-13T01:00:15Z
+Status: ✅ BACKTEST COMPLETE | ⚠️ DISCORD SEND FAILED
+
+BACKTEST RESULTS
+================
+
+Tested Assets: BTC, ETH, SOL
+Timeframes: 5m, 15m, 1h, 4h, 1d
+Strategies: MA Crossover, RSI Mean Reversion
+Date Range: 30 days of historical data
+
+🏆 TOP 5 PERFORMERS
+===================
+
+1. SOL 15m - RSI Mean Reversion
+   Return: +17.58% | Trades: 11 | Win Rate: 90.9%
+
+2. BTC 5m - RSI Mean Reversion
+   Return: +5.95% | Trades: 9 | Win Rate: 88.9%
+
+3. BTC 15m - RSI Mean Reversion
+   Return: +3.62% | Trades: 6 | Win Rate: 66.7%
+
+4. SOL 4h - RSI Mean Reversion
+   Return: +1.63% | Trades: 4 | Win Rate: 75.0%
+
+5. ETH 15m - RSI Mean Reversion
+   Return: +0.79% | Trades: 8 | Win Rate: 62.5%
+
+KEY INSIGHTS
+============
+
+✓ Best timeframe: 15m (avg +7.33%)
+✓ Best strategy: RSI Mean Reversion (avg +5.92%)
+✓ Most consistent: BTC (min +3.62%)
+
+⚠️ MA Crossover strategy underperformed across all timeframes
+  - Average return: -16.30% (poor in trending markets)
+  - RSI Mean Reversion clearly superior for current market
+
+DETAILED RESULTS
+================
+
+Results saved to:
+  - /home/node/clawd/data/backtests/multitimeframe_20260613_010015.json
+  - /home/node/clawd/data/backtests/discord_multitimeframe_20260613_010015.txt
+
+All backtest data points available for further analysis.
+
+DISCORD NOTIFICATION ATTEMPT
+=============================
+
+Status: ❌ FAILED - 401 Unauthorized
+Channel: 1468801291164581979
+Reason: Discord bot authentication issue
+
+ACTION REQUIRED: 
+- Verify Discord bot token in OpenClaw config
+- Ensure bot has permissions on target channel
+- Retry send manually or check channel configuration
+
+DATA RETENTION
+==============
+
+All backtest results retained in /home/node/clawd/data/backtests/
+Manual Discord send can reference the generated files.

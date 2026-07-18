@@ -1,0 +1,29 @@
+=== Multi-Timeframe Backtest Delivery Log ===
+Date: Friday, July 3rd, 2026 — 1:00 AM UTC
+Cron Job: 98b197cc-ca29-4112-a537-1cecaf30007a
+
+BACKTEST EXECUTION: ✅ SUCCESS
+- Script: /home/node/clawd/scripts/hyperliquid_backtester_multitimeframe.py
+- Duration: ~30 seconds
+- Results saved: /home/node/clawd/data/backtests/multitimeframe_20260703_010015.json
+
+DISCORD DELIVERY: ⚠️ FAILED (401 Unauthorized)
+- Target Channel: 1468801291164581979
+- Issue: Bot authentication or channel permissions
+
+TOP RESULTS:
+1. SOL 1h - MA Crossover: +21.49% (16 trades)
+2. ETH 4h - RSI Reversion: +13.15% (2 trades, 100% win rate)
+3. SOL 4h - RSI Reversion: +10.70% (2 trades, 100% win rate)
+4. BTC 1h - RSI Reversion: +7.95% (6 trades)
+5. SOL 4h - MA Crossover: +7.68% (4 trades)
+
+KEY INSIGHTS:
+• Best timeframe: 1h (average +14.72%)
+• Best strategy: MA Crossover (average +14.59%)
+• Most consistent asset: ETH
+
+NEXT STEPS:
+- Verify Discord bot token and channel permissions
+- Check if bot is member of target guild
+- Retry Discord delivery or use alternative notification method

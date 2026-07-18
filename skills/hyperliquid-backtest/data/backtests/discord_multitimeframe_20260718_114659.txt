@@ -1,0 +1,21 @@
+## 📊 Multi-Timeframe Backtest Results
+
+**🏆 Top 5 Performing Combinations:**
+
+🥇 **ETH** 15m - RSI Mean Reversion
+   Return: **+12.81%** | Trades: 11 | Win Rate: 90.9%
+
+🥈 **SOL** 1h - MA Crossover
+   Return: **+12.77%** | Trades: 18 | Win Rate: 38.9%
+
+🥉 **SOL** 1h - RSI Mean Reversion
+   Return: **+12.19%** | Trades: 7 | Win Rate: 85.7%
+
+📈 **BTC** 1h - RSI Mean Reversion
+   Return: **+10.84%** | Trades: 6 | Win Rate: 100.0%
+
+📈 **SOL** 4h - RSI Mean Reversion
+   Return: **+6.90%** | Trades: 1 | Win Rate: 100.0%
+
+
+💡 Half-Kelly suggested size on top combo (assumes $1000 bankroll): $200

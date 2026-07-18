@@ -1,0 +1,24 @@
+## 📊 Multi-Timeframe Backtest Results
+
+**🏆 Top 5 Performing Combinations:**
+
+🥇 **ETH** 5m - RSI Mean Reversion
+   Return: **+25.76%** | Trades: 16 | Win Rate: 93.8%
+
+🥈 **SOL** 1h - MA Crossover
+   Return: **+19.94%** | Trades: 19 | Win Rate: 57.9%
+
+🥉 **BTC** 1h - RSI Mean Reversion
+   Return: **+12.09%** | Trades: 6 | Win Rate: 100.0%
+
+📈 **SOL** 4h - MA Crossover
+   Return: **+11.51%** | Trades: 3 | Win Rate: 66.7%
+
+📈 **SOL** 1h - RSI Mean Reversion
+   Return: **+9.35%** | Trades: 5 | Win Rate: 80.0%
+
+
+**Key Insights:**
+• Best timeframe: 5m (avg +25.76%)
+• Best strategy: RSI Mean Reversion (avg +15.73%)
+• Most consistent: ETH (min +25.76%)
