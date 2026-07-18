@@ -62,7 +62,12 @@ def main():
     results = analyze_all_keywords(search_keyword)
 
     print("Generating social post drafts (draft only, no publish)...", file=sys.stderr)
-    generate_drafts(results)
+    try:
+        generate_drafts(results)
+    except Exception as e:
+        # Don't let a Moonshot outage/network block take down the whole run — sentiment
+        # scoring + brief are still valuable on their own. Caller can draft posts another way.
+        print(f"Social draft generation skipped ({e}) — continuing without it.", file=sys.stderr)
 
     brief = format_telegram_brief(results)
     print(brief)  # stdout: pipe this to the telegram skill's send step
