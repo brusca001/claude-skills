@@ -1,0 +1,126 @@
+{
+  "name": "Claude MCP Tools (send_email + get_hyperliquid_candles)",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "none",
+        "path": "claude-tools"
+      },
+      "id": "7dee25d6-a3d1-4abe-8155-53d611a927f8",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetch OHLC candle data from Hyperliquid's public testnet API for backtesting. Provide coin (e.g. BTC, ETH, SOL), interval (e.g. 5m, 15m, 1h, 4h, 1d), and startTime/endTime as millisecond epoch timestamps.",
+        "method": "POST",
+        "url": "https://api.hyperliquid-testnet.xyz/info",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"type\": \"candleSnapshot\", \"req\": {\"coin\": \"{coin}\", \"interval\": \"{interval}\", \"startTime\": {startTime}, \"endTime\": {endTime}}}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "coin",
+              "description": "Symbol, e.g. BTC, ETH, SOL",
+              "type": "string"
+            },
+            {
+              "name": "interval",
+              "description": "Candle interval: 5m, 15m, 1h, 4h, or 1d",
+              "type": "string"
+            },
+            {
+              "name": "startTime",
+              "description": "Range start, milliseconds since epoch",
+              "type": "number"
+            },
+            {
+              "name": "endTime",
+              "description": "Range end, milliseconds since epoch",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "2ccbdb78-3275-4df8-bca8-5a436c4c4d99",
+      "name": "get_hyperliquid_candles",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "name": "send_email",
+        "description": "Send an email via SMTP. Provide 'to' (recipient email address), 'subject', and 'body' (plain text message).",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": ""
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": null
+        }
+      },
+      "id": "0a2df6d6-8168-4de8-9d32-944eabb7eae0",
+      "name": "send_email",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.1,
+      "position": [
+        700,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "get_hyperliquid_candles": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_email": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
