@@ -1,45 +1,36 @@
 ---
 name: crypto-sentiment-defi
-description: Daily crypto sentiment analysis (27 keywords monitored on X/Twitter, bullish/bearish scoring, spike detection) plus DeFi news discovery pushed to Airtable with duplicate filtering, and draft-only social post suggestions via Kimi. Usage — /crypto-sentiment-defi, or "run the daily crypto sentiment report"
+description: Daily crypto sentiment analysis (32 keywords monitored on X/Twitter locally; qualitative news-based sentiment in the cloud routine), DeFi news discovery pushed to Airtable with duplicate filtering, and draft-only social post suggestions. Usage — /crypto-sentiment-defi, or "run the daily crypto sentiment report"
 ---
 
 Merges ClawdBot's `crypto-sentiment-analyzer` + `airtable-defi-news` skills, cleaned up and extended per the user's request to "build on" it with an LLM backend (Kimi/Moonshot, OpenRouter as a secondary option) instead of pure keyword-counting.
 
-## Daily workflow
+## Two different workflows: local vs. cloud
 
-Run these in order. Steps 1-3 and 6 are mechanical (Python scripts, deterministic). Steps 4-5 need an agent's own search/reasoning and are described as instructions, not scripts — this is not accidental: news relevance judgment and Airtable field-writing are things you (the agent) do directly, better than a bespoke scraper would.
+This skill runs differently depending on where it executes, because the `/schedule` cloud sandbox blocks essentially all raw third-party HTTPS calls (confirmed via diagnostic: `api.moonshot.ai`, `api.telegram.org`, `discord.com`, `api.hyperliquid.xyz`, and even `api.airtable.com` directly all return 403 at the proxy/CONNECT level). Only GitHub, PyPI, npm, and MCP-connector traffic (Airtable, Gmail) get through. So:
+
+### Local run (full pipeline, real X data)
 
 1. **Sentiment + social drafts** (mechanical):
    ```bash
    cd ~/.claude/skills/crypto-sentiment-defi
    python3 scripts/run_daily.py
    ```
-   This fetches X mentions for all 27 keywords via `bird`, scores bullish/bearish sentiment, detects spikes vs the 7-day rolling baseline (`data/sentiment-history.json`), drafts (never publishes) social posts via Kimi to `data/social_drafts_<date>.json`, and prints a Telegram-ready brief to stdout.
+   Fetches X mentions for all 32 keywords via `bird`, scores bullish/bearish sentiment, detects spikes vs the 7-day rolling baseline (`data/sentiment-history.json`), drafts (never publishes) social posts via Kimi to `data/social_drafts_<date>.json`, and prints a Telegram-ready brief to stdout. If `X_AUTH_TOKEN`/`X_CT0` aren't set or `bird` isn't installed, `fetch_mentions.py` returns 0 mentions per keyword gracefully instead of crashing. If Moonshot is unreachable (e.g. an outage), `generate_drafts()` fails gracefully too and the run continues without social drafts — this same resilience is what makes the cloud path work (see below).
+2. **DeFi news discovery** (agent step): search for 2-3 fresh items (queries: "DeFi crypto news today", "Ethereum Layer 2 news", "Solana ecosystem updates", "Bitcoin ETF institutional", "crypto regulations SEC"). For each: `topic`, `title`, `content` (<280 chars), `why` (1 sentence), `source` (URL).
+3. **Push to Airtable, with dedup**: `airtable_sync.push_daily_defi_news([...])` — checks the last 7 days via Jaccard similarity (`dedup.py`, 60% threshold), skips near-duplicates.
+4. **Deliver**: pipe `run_daily.py`'s stdout brief through the existing local `telegram` skill (`/telegram <brief>`) — don't rebuild Telegram integration.
 
-2. **If `X_AUTH_TOKEN`/`X_CT0` aren't set or `bird` isn't installed**, `fetch_mentions.py` returns 0 mentions per keyword gracefully (no crash) — sentiment scoring still runs, just on no data. Install with `npm install -g @steipete/bird` and set the cookies in `.env` (reused from the same X account ClawdBot used — test with a plain `bird search Bitcoin --auth-token ... --ct0 ...` first, since cookies can be IP/device-bound).
+### Cloud `/schedule` routine (no X data, no Moonshot, no Telegram)
 
-3. **DeFi news discovery** (agent step, not a script): search for 2-3 fresh DeFi/crypto news items from the last 24h (topics: "DeFi crypto news today", "Ethereum Layer 2 news", "Solana ecosystem updates", "Bitcoin ETF institutional", "crypto regulations SEC" — ported from the original query list). Use whatever web search tool is available in this session (Firecrawl locally, WebSearch in a cloud `/schedule` routine). For each item, produce:
-   - `topic`: headline
-   - `title`: same as topic or a cleaner version
-   - `content`: <280 char factual summary
-   - `why`: 1 sentence on why it matters
-   - `source`: the URL
+Do **not** run `scripts/run_daily.py` or `scripts/sentiment_analyzer.py` in the cloud routine — they depend on `bird` (needs X cookies, deliberately excluded from cloud, see below) and Moonshot (blocked). Instead the routine prompt has the agent do everything itself:
+1. WebSearch for the same DeFi news queries as above.
+2. Write a **qualitative** sentiment paragraph (bullish/neutral/bearish/mixed + why) based on the news tone — replaces the numeric X-keyword scoring, which would otherwise always show a misleading 0%/0% in the cloud (no X data there).
+3. Push to Airtable via the **Airtable MCP connector** directly (not `airtable_sync.py`'s REST client — that hits the blocked `api.airtable.com` host; the MCP connector is a separate, working code path).
+4. Draft the 4 social posts itself (it's already an LLM — no need to call Moonshot for this).
+5. Deliver via **Gmail MCP `create_draft`** (not Telegram — blocked). Note: `create_draft` is the *only* write capability this Gmail connector exposes, there's no send tool, so cloud-routine output always lands as a draft requiring a manual send, not a delivered email.
 
-4. **Push to Airtable, with dedup**:
-   ```python
-   import sys; sys.path.insert(0, "scripts")
-   from airtable_sync import push_daily_defi_news
-   push_daily_defi_news([{...}, {...}, {...}])  # the 2-3 records from step 3
-   ```
-   This checks the last 7 days of Airtable records via Jaccard similarity (`dedup.py`, 60% threshold) and skips anything too similar to what's already posted — same logic as the original, just no more hardcoded API token (`AIRTABLE_API_KEY` env var now).
-
-5. **One Twitter-thread-style record**, same call with `table_type="threads"` — same fields, goes to the Twitter Threads table instead.
-
-6. **Deliver the brief**: locally, send `run_daily.py`'s stdout brief via the existing local `telegram` skill (`/telegram <brief>`) — don't rebuild Telegram integration there. In a `/schedule` cloud routine (no access to the local `telegram` skill), pipe it through `scripts/send_telegram.py` instead, using `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`.
-
-## Cloud routine vs local run — X/Twitter monitoring
-
-**X session cookies (`X_AUTH_TOKEN`/`X_CT0`) are never embedded in the `/schedule` routine** — they grant full account access if ever leaked from a stored cloud prompt, unlike the other credentials here. The cloud routine runs `run_daily.py` **without** those env vars set, which degrades gracefully (already verified): `fetch_mentions.py` returns 0 mentions per keyword instead of crashing, sentiment scoring still runs (on empty data), and social drafts still generate from whatever DeFi news was found that day. Live X sentiment data only flows in when you run this locally, where the cookies stay in your local `.env` and never touch Anthropic's cloud.
+**X session cookies (`X_AUTH_TOKEN`/`X_CT0`) are never embedded in the `/schedule` routine regardless of the network block** — they grant full account access if ever leaked from a stored cloud prompt, unlike the other credentials here. This was a deliberate security decision, not a technical limitation like the others.
 
 ## Never do this
 
@@ -51,7 +42,7 @@ See `.env.example`. `AIRTABLE_API_KEY`, `MOONSHOT_API_KEY`/`OPENROUTER_API_KEY`,
 
 ## Scheduling
 
-Daily via a `/schedule` cloud routine (not `/loop`). The routine prompt should: clone this skill's repo, `npm install -g @steipete/bird`, `pip install -r requirements.txt`, then walk through the 6 steps above itself (it's a real Claude agent, not a script runner — it can do the search/Airtable-write steps directly).
+Daily via a `/schedule` cloud routine (not `/loop`) — see the "Cloud `/schedule` routine" workflow above. The routine has `Bash`/`WebSearch` tools plus the Airtable and Gmail MCP connectors attached; it does not need `bird` installed since X monitoring is skipped entirely in the cloud path.
 
 ## Provenance / what changed from the ClawdBot original
 

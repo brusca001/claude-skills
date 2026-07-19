@@ -1,6 +1,6 @@
 ---
 name: youtube-crypto-digest
-description: Finds 5 recent crypto/DeFi/Solana-meme YouTube videos daily, sends a digest to Telegram, and summarizes on request via Kimi. Usage — /youtube-crypto-digest, or "run today's youtube crypto digest", or "summarize video 3"
+description: Finds 5 recent crypto/DeFi/Solana-meme YouTube videos daily, sends a digest (Telegram locally, Gmail draft in the cloud routine), and summarizes on request via Kimi. Usage — /youtube-crypto-digest, or "run today's youtube crypto digest", or "summarize video 3"
 ---
 
 Ported from ClawdBot's `youtube-crypto-digest` skill. The original used the Brave Search API; this version drops that dependency entirely and uses whatever web search tool is already available in the session (Firecrawl locally, WebSearch in a `/schedule` cloud routine) — no new API key needed for discovery.
@@ -9,12 +9,14 @@ Ported from ClawdBot's `youtube-crypto-digest` skill. The original used the Brav
 
 1. **Discover videos** (agent step, not a script): search for 5 recent (last 7 days) YouTube videos on crypto/DeFi/Solana-meme-token topics. Query terms modeled on the original: `crypto`, `DeFi`, `Solana meme tokens`, `Solana`, `meme coins`, `altcoins` — scope to `site:youtube.com`. Pick genuinely recent, substantive videos (skip clickbait/low-view spam if apparent). For each, capture `title`, `url`, and `channel` if visible.
 
-2. **Format and send the digest**:
+2. **Format and send the digest — local run**:
    ```bash
    cd ~/.claude/skills/youtube-crypto-digest
    echo '[{"title": "...", "url": "...", "channel": "..."}, ...]' | python3 scripts/format_digest.py | python3 scripts/send_telegram.py
    ```
-   (Locally, you can use the existing `/telegram` skill instead of `send_telegram.py` — same bot, same result. `send_telegram.py` exists because the cloud `/schedule` routine won't have the local `telegram` skill directory available, so it needs a self-contained sender.)
+   (Or use the existing `/telegram` skill instead of `send_telegram.py` — same bot, same result.)
+
+   **Cloud `/schedule` routine**: `api.telegram.org` is blocked by this sandbox's network egress policy (confirmed via diagnostic — only GitHub/PyPI/npm and MCP-connector traffic get through), so `send_telegram.py` will fail there. Use the **Gmail MCP `create_draft`** tool instead, addressed to blvck@brucelevick.com. Note `create_draft` is the only write capability that connector exposes — no send tool exists, so cloud output always lands as a draft requiring a manual send, not a delivered notification.
 
 3. **End the routine here.** `/schedule` runs are one-shot/non-interactive — don't wait for a reply. Summarization (step 4) happens as a separate, manually-triggered local invocation later.
 

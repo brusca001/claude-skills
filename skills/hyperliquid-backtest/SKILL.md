@@ -1,6 +1,6 @@
 ---
 name: hyperliquid-backtest
-description: Runs a multi-timeframe backtest (MA crossover + RSI mean reversion, across 5m/15m/1h/4h/1d on BTC/ETH/SOL) against Hyperliquid's public testnet data, reports the top combinations to Discord, and suggests a half-Kelly position size for the best one. Usage — /hyperliquid-backtest, or "run the hyperliquid backtest"
+description: Runs a multi-timeframe backtest (MA crossover + RSI mean reversion, across 5m/15m/1h/4h/1d on BTC/ETH/SOL) against Hyperliquid's public testnet data, reports the top combinations (Discord locally, Gmail draft in the cloud routine), and suggests a half-Kelly position size for the best one. Usage — /hyperliquid-backtest, or "run the hyperliquid backtest"
 ---
 
 Ported from ClawdBot's `hyperliquid_backtester_multitimeframe.py` (VPS 31.97.49.240) — same strategy logic and output format, so `data/backtests/` is one continuous historical series (306 files pulled from the VPS archive, Feb 2026 → present, plus everything generated locally from here on).
@@ -35,7 +35,11 @@ See `.env.example`. Only `DISCORD_WEBHOOK_URL` is needed; everything else is a p
 
 ## Scheduling
 
-Runs daily via a `/schedule` cloud routine (not `/loop` — this needs to fire even when the laptop is asleep). The routine prompt clones this skill's source (from whatever repo it's pushed to), runs `multitimeframe_backtest.py`, and posts the result via `report.py`. `DISCORD_WEBHOOK_URL` is configured as an env var on the routine itself, not read from this local `.env`.
+Runs daily via a `/schedule` cloud routine (not `/loop` — this needs to fire even when the laptop is asleep).
+
+**Known limitation, confirmed via diagnostic:** this cloud sandbox's network egress policy blocks `api.hyperliquid.xyz`/`api.hyperliquid-testnet.xyz` and `discord.com` at the proxy/CONNECT level — only GitHub/PyPI/npm and MCP-connector traffic get through, and there's no MCP connector for Hyperliquid market data. So the cloud routine currently **cannot fetch real candle data** and will report that failure rather than send an empty/misleading report. It stays scheduled and will start working automatically if that host is ever added to the environment's allowlist — no code change needed on that day. Until then, this skill only produces real results when run **locally** (`/hyperliquid-backtest`), where the network isn't restricted.
+
+If step 3 does succeed (e.g. a future environment change), delivery is via **Gmail MCP `create_draft`** to blvck@brucelevick.com, not Discord — the `discord.com` webhook call is blocked the same way. Note `create_draft` is the only write capability that connector exposes; there's no send tool, so this always lands as a draft requiring a manual send, not a delivered notification.
 
 ## Notes / provenance
 
