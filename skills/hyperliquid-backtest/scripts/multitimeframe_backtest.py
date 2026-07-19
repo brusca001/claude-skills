@@ -129,33 +129,54 @@ class MultiTimeframeBacktester:
             trades.append({"type": "sell", "price": closes[-1], "pnl": pnl})
         return self._summarize(trades)
 
+    def _process_combo(self, symbol, timeframe, candles):
+        """Run both strategies against one symbol/timeframe's candles. None if insufficient data."""
+        if not candles or len(candles) < 50:
+            logger.warning(f"Insufficient data for {symbol} {timeframe}")
+            return None
+        ma_results = self.backtest_ma_crossover(candles)
+        rsi_results = self.backtest_rsi_mean_reversion(candles)
+        logger.info(
+            f"{symbol} {timeframe}: MA {ma_results['total_return']:+.2f}% "
+            f"({ma_results['trades']}t) | RSI {rsi_results['total_return']:+.2f}% "
+            f"({rsi_results['trades']}t)"
+        )
+        return {
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "data_points": len(candles),
+            "ma_crossover": ma_results,
+            "rsi_mean_reversion": rsi_results,
+            "timestamp": datetime.now().isoformat(),
+        }
+
     def run_timeframe_comparison(self, symbols=("BTC", "ETH", "SOL")):
+        """Local path: fetches its own data via direct HTTP (self.api)."""
         all_results = []
         for symbol in symbols:
             logger.info(f"Testing {symbol} across all timeframes")
             for timeframe in self.timeframes:
                 candles = self.fetch_data(symbol, timeframe)
-                if not candles or len(candles) < 50:
-                    logger.warning(f"Insufficient data for {symbol} {timeframe}")
-                    continue
-                ma_results = self.backtest_ma_crossover(candles)
-                rsi_results = self.backtest_rsi_mean_reversion(candles)
-                all_results.append(
-                    {
-                        "symbol": symbol,
-                        "timeframe": timeframe,
-                        "data_points": len(candles),
-                        "ma_crossover": ma_results,
-                        "rsi_mean_reversion": rsi_results,
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                )
-                logger.info(
-                    f"{timeframe}: MA {ma_results['total_return']:+.2f}% "
-                    f"({ma_results['trades']}t) | RSI {rsi_results['total_return']:+.2f}% "
-                    f"({rsi_results['trades']}t)"
-                )
+                result = self._process_combo(symbol, timeframe, candles)
+                if result:
+                    all_results.append(result)
+        return self._finalize(all_results)
 
+    def run_from_prefetched(self, data: dict):
+        """
+        Cloud path: data = {symbol: {timeframe: candles_list}}, already fetched by the
+        caller (e.g. via an MCP tool, since this sandbox blocks direct calls to
+        api.hyperliquid.xyz). No network access needed here at all.
+        """
+        all_results = []
+        for symbol, by_timeframe in data.items():
+            for timeframe, candles in by_timeframe.items():
+                result = self._process_combo(symbol, timeframe, candles)
+                if result:
+                    all_results.append(result)
+        return self._finalize(all_results)
+
+    def _finalize(self, all_results):
         best_combinations = self.find_best_combinations(all_results)
 
         # Half-Kelly sizing suggestion for the #1 combination (bankroll assumed $1000, informational only)
