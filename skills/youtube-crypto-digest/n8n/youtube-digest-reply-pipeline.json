@@ -2,7 +2,7 @@
   "name": "YouTube Digest Reply -> mydefilife Article",
   "nodes": [
     {
-      "id": "f5a405c1-0a4d-4936-a88a-6b2a6e7b1395",
+      "id": "af4a8cbf-1af9-4f7b-b3fa-620ed654e32f",
       "name": "Email Trigger (IMAP)",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2.2,
@@ -14,7 +14,9 @@
         "mailbox": "INBOX",
         "postProcessAction": "read",
         "format": "simple",
-        "options": {}
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\", [\"SUBJECT\", \"YouTube Crypto Digest\"]]"
+        }
       },
       "credentials": {
         "imap": {
@@ -24,7 +26,7 @@
       }
     },
     {
-      "id": "5ffd1898-dafd-4a5d-be57-70dd6e99f3b7",
+      "id": "d62ee743-b686-4a4e-ba6b-33f15fbe98fc",
       "name": "Parse Reply & Select Video",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -35,46 +37,78 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const subject = $json.subject || '';\nif (!/YouTube Crypto Digest/i.test(subject)) {\n  return null; // not a reply to our digest, stop the pipeline here\n}\n\nconst text = $json.textPlain || '';\nconst lines = text.split('\\n');\n\n// Find where quoting starts (Gmail-style \"On ... wrote:\" or lines starting with '>')\nlet boundary = lines.length;\nfor (let i = 0; i < lines.length; i++) {\n  const l = lines[i].trim();\n  if (/^On .+wrote:$/.test(l) || l.startsWith('>')) {\n    boundary = i;\n    break;\n  }\n}\n\nconst replyBody = lines.slice(0, boundary).join('\\n').trim();\nconst quoted = lines.slice(boundary).map(l => l.replace(/^>\\s?/, '')).join('\\n');\n\nconst numMatch = replyBody.match(/\\b([1-5])\\b/);\nconst selectedNum = numMatch ? numMatch[1] : null;\n\n// Parse numbered video list from the quoted original digest: \"N. Title (Channel)\" then a URL line\nconst videoMap = {};\nconst qLines = quoted.split('\\n');\nfor (let i = 0; i < qLines.length; i++) {\n  const m = qLines[i].match(/^\\s*(\\d+)\\.\\s+(.+)$/);\n  if (m) {\n    const num = m[1];\n    const title = m[2].trim();\n    let url = null;\n    for (let j = i + 1; j < qLines.length && j < i + 3; j++) {\n      const urlMatch = qLines[j].match(/(https?:\\/\\/\\S+)/);\n      if (urlMatch) { url = urlMatch[1]; break; }\n    }\n    videoMap[num] = { title, url };\n  }\n}\n\nif (!selectedNum || !videoMap[selectedNum] || !videoMap[selectedNum].url) {\n  return {\n    json: {\n      error: 'Could not determine which video was selected',\n      selectedNumber: selectedNum,\n      videoMap,\n      replyBody,\n      rawTextPlain: text,\n    }\n  };\n}\n\nreturn {\n  json: {\n    selectedNumber: selectedNum,\n    selectedTitle: videoMap[selectedNum].title,\n    selectedUrl: videoMap[selectedNum].url,\n    videoMap,\n    replyBody,\n  }\n};"
+        "jsCode": "const subject = $json.subject || '';\nconst isDigestSubject = /YouTube Crypto Digest/i.test(subject);\n\nif (!isDigestSubject) {\n  return { json: { isDigestReply: false, reason: 'subject did not match', subject } };\n}\n\nconst text = $json.textPlain || '';\nconst lines = text.split('\\n');\n\n// Find where quoting starts (Gmail-style \"On ... wrote:\" or lines starting with '>')\nlet boundary = lines.length;\nfor (let i = 0; i < lines.length; i++) {\n  const l = lines[i].trim();\n  if (/^On .+wrote:$/.test(l) || l.startsWith('>')) {\n    boundary = i;\n    break;\n  }\n}\n\nconst replyBody = lines.slice(0, boundary).join('\\n').trim();\nconst quoted = lines.slice(boundary).map(l => l.replace(/^>\\s?/, '')).join('\\n');\n\nconst numMatch = replyBody.match(/\\b([1-5])\\b/);\nconst selectedNum = numMatch ? numMatch[1] : null;\n\n// Parse numbered video list from the quoted original digest: \"N. Title (Channel)\" then a URL line\nconst videoMap = {};\nconst qLines = quoted.split('\\n');\nfor (let i = 0; i < qLines.length; i++) {\n  const m = qLines[i].match(/^\\s*(\\d+)\\.\\s+(.+)$/);\n  if (m) {\n    const num = m[1];\n    const title = m[2].trim();\n    let url = null;\n    for (let j = i + 1; j < qLines.length && j < i + 3; j++) {\n      const urlMatch = qLines[j].match(/(https?:\\/\\/\\S+)/);\n      if (urlMatch) { url = urlMatch[1]; break; }\n    }\n    videoMap[num] = { title, url };\n  }\n}\n\nconst selected = selectedNum ? videoMap[selectedNum] : null;\n\nif (!selected || !selected.url) {\n  return {\n    json: {\n      isDigestReply: false,\n      reason: 'could not resolve a selected video from the reply',\n      selectedNumber: selectedNum,\n      videoMap,\n      replyBody,\n      rawTextPlain: text,\n    }\n  };\n}\n\nreturn {\n  json: {\n    isDigestReply: true,\n    selectedNumber: selectedNum,\n    selectedTitle: selected.title,\n    selectedUrl: selected.url,\n    videoMap,\n    replyBody,\n  }\n};"
       }
     },
     {
-      "id": "1190a211-182c-4313-a947-3ae7656b6d9d",
-      "name": "Fetch Transcript (yt-dlp)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "id": "30459a34-ffc0-4fc5-a24c-5d6a7d8cfa59",
+      "name": "Is Valid Digest Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
       "position": [
         720,
         300
       ],
       "parameters": {
-        "executeOnce": false,
-        "command": "cd /tmp && rm -f n8n_transcript*.vtt && yt-dlp --skip-download --write-auto-sub --sub-lang en --sub-format vtt -o \"n8n_transcript.%(ext)s\" \"{{ $json.selectedUrl }}\" 2>&1 && cat n8n_transcript.en.vtt"
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.isDigestReply }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
       }
     },
     {
-      "id": "f5a6d1fc-2f6b-4777-9d65-9bd7e2988280",
+      "id": "c6db07ff-9320-4daf-a22b-df1eb4d6f163",
+      "name": "Fetch Transcript (yt-dlp)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        980,
+        220
+      ],
+      "parameters": {
+        "executeOnce": false,
+        "command": "cd /tmp && rm -f n8n_transcript*.vtt; yt-dlp --skip-download --write-auto-sub --sub-lang en --sub-format vtt -o \"n8n_transcript.%(ext)s\" \"{{ $json.selectedUrl }}\" > /tmp/ytdlp.log 2>&1; if ls n8n_transcript*.vtt 1> /dev/null 2>&1; then cat n8n_transcript*.vtt; else echo \"NO_TRANSCRIPT_AVAILABLE\"; fi"
+      }
+    },
+    {
+      "id": "ab42b75c-3ce5-4c6d-9af2-047e66b8c6a6",
       "name": "Clean Transcript",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        980,
-        300
+        1240,
+        220
       ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const vtt = $json.stdout || '';\nconst rawLines = vtt.split('\\n');\nconst textLines = [];\nfor (let line of rawLines) {\n  line = line.trim();\n  if (!line) continue;\n  if (line.startsWith('WEBVTT') || line.startsWith('Kind:') || line.startsWith('Language:')) continue;\n  if (line.includes('-->')) continue;\n  if (/^\\d+$/.test(line)) continue;\n  line = line.replace(/<[^>]+>/g, '');\n  textLines.push(line);\n}\nconst deduped = [];\nfor (const l of textLines) {\n  if (deduped.length === 0 || deduped[deduped.length - 1] !== l) deduped.push(l);\n}\nconst transcript = deduped.join(' ').slice(0, 12000);\n\nreturn {\n  json: {\n    transcript,\n    videoTitle: $('Parse Reply & Select Video').item.json.selectedTitle,\n    videoUrl: $('Parse Reply & Select Video').item.json.selectedUrl,\n  }\n};"
+        "jsCode": "const stdout = $json.stdout || '';\n\nif (stdout.trim() === 'NO_TRANSCRIPT_AVAILABLE') {\n  return {\n    json: {\n      transcript: '(No auto-captions were available for this video. Article will be based on the title only -- expect a thin draft, review carefully.)',\n      videoTitle: $('Parse Reply & Select Video').item.json.selectedTitle,\n      videoUrl: $('Parse Reply & Select Video').item.json.selectedUrl,\n      hasTranscript: false,\n    }\n  };\n}\n\nconst rawLines = stdout.split('\\n');\nconst textLines = [];\nfor (let line of rawLines) {\n  line = line.trim();\n  if (!line) continue;\n  if (line.startsWith('WEBVTT') || line.startsWith('Kind:') || line.startsWith('Language:')) continue;\n  if (line.includes('-->')) continue;\n  if (/^\\d+$/.test(line)) continue;\n  line = line.replace(/<[^>]+>/g, '');\n  textLines.push(line);\n}\nconst deduped = [];\nfor (const l of textLines) {\n  if (deduped.length === 0 || deduped[deduped.length - 1] !== l) deduped.push(l);\n}\nconst transcript = deduped.join(' ').slice(0, 12000);\n\nreturn {\n  json: {\n    transcript: transcript || '(Transcript was empty after cleaning.)',\n    videoTitle: $('Parse Reply & Select Video').item.json.selectedTitle,\n    videoUrl: $('Parse Reply & Select Video').item.json.selectedUrl,\n    hasTranscript: transcript.length > 0,\n  }\n};"
       }
     },
     {
-      "id": "bca20e4b-bcaa-4e9f-9f8a-ae074442a48c",
+      "id": "8abaa181-3d29-4c17-b865-38d2d86211a3",
       "name": "Generate Article (Moonshot)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1240,
-        300
+        1500,
+        220
       ],
       "parameters": {
         "method": "POST",
@@ -96,17 +130,17 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "{\"model\": \"kimi-k2.5\", \"temperature\": 1, \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
+        "jsonBody": "{\"model\": \"kimi-k2.5\", \"temperature\": 1, \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
       }
     },
     {
-      "id": "c1e0f980-8cb3-4de5-a1af-227fdd1cc249",
+      "id": "efa83f1d-0fec-48e2-8d29-8b530edb5ec6",
       "name": "Parse Article JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1500,
-        300
+        1760,
+        220
       ],
       "parameters": {
         "language": "javaScript",
@@ -115,13 +149,13 @@
       }
     },
     {
-      "id": "ae1b2eab-5007-4b97-92e8-9bc170080d03",
+      "id": "e9abd7c2-bf48-412e-bcf0-5bf1cd466fd2",
       "name": "Create WordPress Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
-        300
+        2020,
+        220
       ],
       "parameters": {
         "method": "POST",
@@ -157,11 +191,23 @@
       "main": [
         [
           {
-            "node": "Fetch Transcript (yt-dlp)",
+            "node": "Is Valid Digest Reply?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Is Valid Digest Reply?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript (yt-dlp)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Fetch Transcript (yt-dlp)": {

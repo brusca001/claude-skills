@@ -2,15 +2,23 @@
 
 Import `youtube-digest-reply-pipeline.json` into n8n. Reply-to-article pipeline: you reply to a "YouTube Crypto Digest" email with a number, this watches for it, pulls the video info out of the quoted original message (no Airtable, no separate lookup — the reply email already contains everything needed), fetches the transcript, drafts an article, and creates it as a WordPress draft.
 
+**If you imported an earlier version of this file and it errored/behaved oddly**: that version had two real bugs, both fixed now — see "What was actually broken" below before re-importing.
+
 ## What it does, node by node
 
-1. **Email Trigger (IMAP)** — watches an inbox for new mail (`INBOX`, marks read after processing).
-2. **Parse Reply & Select Video** (Code node) — filters to only continue if the subject contains "YouTube Crypto Digest"; parses the reply body for a digit 1-5; parses the quoted original message (everything after the "On ... wrote:" / `>`-quoted boundary) for the numbered video list, matching it against `format_digest.py`'s output shape (`N. Title (Channel)` then a URL on the next line); resolves the selected number to a title + URL.
-3. **Fetch Transcript (yt-dlp)** (Execute Command) — runs `yt-dlp --write-auto-sub` on the video URL and cats the resulting `.vtt` file to stdout.
-4. **Clean Transcript** (Code node) — strips VTT timing/markup down to plain text (same logic as the local skill's `transcript_fetch.py`).
-5. **Generate Article (Moonshot)** (HTTP Request) — calls `api.moonshot.ai` (same Kimi key already used elsewhere) to write an 800-1200 word article as JSON `{title, content}`.
-6. **Parse Article JSON** (Code node) — extracts title/content, with a fallback if the model didn't return clean JSON.
-7. **Create WordPress Draft** (HTTP Request) — `POST /wp-json/wp/v2/posts` with `status: draft` — lands as a draft for review, never auto-publishes live, per your explicit choice.
+1. **Email Trigger (IMAP)** — watches an inbox for new mail matching `["UNSEEN", ["SUBJECT", "YouTube Crypto Digest"]]` (IMAP-level pre-filter — only digest-related emails trigger the workflow at all, not every email in the inbox).
+2. **Parse Reply & Select Video** (Code node) — parses the reply body for a digit 1-5; parses the quoted original message (everything after the "On ... wrote:" / `>`-quoted boundary) for the numbered video list, matching it against `format_digest.py`'s output shape (`N. Title (Channel)` then a URL on the next line); resolves the selected number to a title + URL. Always returns a valid item — sets `isDigestReply: false` with a `reason` field when the subject doesn't match or a video can't be resolved, rather than trying to bail out from inside the Code node (see bug #1 below).
+3. **Is Valid Digest Reply?** (If node) — routes on `isDigestReply`. True → continues to transcript fetch. False → dropped, pipeline ends cleanly here.
+4. **Fetch Transcript (yt-dlp)** (Execute Command) — runs `yt-dlp --write-auto-sub` on the video URL. Falls back to printing `NO_TRANSCRIPT_AVAILABLE` instead of failing the node if the video has no auto-captions (see bug #2 below).
+5. **Clean Transcript** (Code node) — strips VTT timing/markup down to plain text, or passes through a placeholder note if no transcript was available.
+6. **Generate Article (Moonshot)** (HTTP Request) — calls `api.moonshot.ai` (same Kimi key already used elsewhere) to write an 800-1200 word article as JSON `{title, content}`.
+7. **Parse Article JSON** (Code node) — extracts title/content, with a fallback if the model didn't return clean JSON.
+8. **Create WordPress Draft** (HTTP Request) — `POST /wp-json/wp/v2/posts` with `status: draft` — lands as a draft for review, never auto-publishes live, per your explicit choice.
+
+## What was actually broken (fixed in this version)
+
+1. **The Code node tried to `return null` to skip non-matching emails.** n8n's Code node in "Run Once for Each Item" mode does not support this — `typeof null === 'object'` passes the initial check, but the value then fails item validation and n8n throws a `ValidationError` ("A 'json' property isn't an object") instead of gracefully skipping. Since the original IMAP trigger had no subject filter, this meant **every single email arriving at the watched inbox** crashed the workflow. Fixed by always returning a valid object with an `isDigestReply` flag, and adding a real **If node** to gate the pipeline (verified against n8n's source: two named outputs, `true`/`false`, index 0/1 — the false branch is intentionally left unconnected, which is the correct way to drop non-matching items).
+2. **The transcript-fetch shell command used `&&` chaining and a fixed filename.** Any video without auto-captions (a normal, common case) meant `yt-dlp` produced no file, the subsequent `cat` failed, and — since `Execute Command` throws on non-zero exit code by design — the entire node errored out and killed the run. Fixed with an `if/then/else` fallback so the command always exits 0, emitting `NO_TRANSCRIPT_AVAILABLE` instead of failing; downstream nodes handle that case by producing a shorter, clearly-flagged draft rather than crashing.
 
 ## Setup steps
 
