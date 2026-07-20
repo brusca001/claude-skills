@@ -52,6 +52,17 @@ Runs daily via a `/schedule` cloud routine (not `/loop` — this needs to fire e
 - **Local**: `scripts/multitimeframe_backtest.py` → `MultiTimeframeBacktester.run_timeframe_comparison()` — fetches its own data via direct HTTP (`hyperliquid_client.py`).
 - **Cloud**: `scripts/compute_from_prefetched.py <candles.json>` → `MultiTimeframeBacktester.run_from_prefetched(data)` — takes already-fetched candle data (from the MCP tool), does zero network I/O itself. Both paths share the same strategy math (`_process_combo`, `backtest_ma_crossover`, `backtest_rsi_mean_reversion`, `_finalize`) so results are directly comparable and both append to the same `data/backtests/` historical series.
 
+## Learning from the history
+
+A single day's top-5 is noisy — `scripts/analyze_history.py` aggregates across every recorded `multitimeframe_*.json` run (155+ and growing) to find combos that are *persistently* good, not just lucky once:
+
+```bash
+cd ~/.claude/skills/hyperliquid-backtest
+python3 scripts/analyze_history.py --top 10
+```
+
+Ranks by average return, top-5 appearance rate, and a risk-adjusted (avg_return / stdev) ratio. As of this writing: **RSI Mean Reversion dominates completely** — every entry across all three rankings is RSI, zero MA Crossover combos qualify. BTC 15m RSI Mean Reversion has the best risk-adjusted ratio (93.4% positive-return rate, low variance); BTC/ETH 1h RSI Mean Reversion have the highest average returns. Worth re-running periodically as more history accumulates, and worth exploring as the starting point for a real paper-trading bot (see `ai-contrarian-bot`'s existing risk-management/Kelly-sizing framework for a base to extend).
+
 ## Notes / provenance
 
 - `scripts/hyperliquid_client.py` — extracted from the original ClawdBot script's inline `HyperliquidAPI` class, unchanged.
