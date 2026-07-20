@@ -28,8 +28,16 @@ Tested locally (video ID extraction, caption-track-URL regex, XML entity decodin
 
 1. **Import the workflow.**
 2. **Email Trigger (IMAP) node** — set up an IMAP credential for `mdl@mydefilife.com` and select it. The `youtube-crypto-digest` cloud routine sends the daily digest there (not `blvck@brucelevick.com`) specifically so replies land in the mailbox this workflow watches.
-3. **Create WordPress Draft node** — set **Authentication → Generic Credential Type → Basic Auth**, credential = your mydefilife.com WordPress Application Password (username + the generated app password, not your normal login password).
-4. Activate the workflow.
+3. **Generate Article (Moonshot) node** — set up a **Header Auth** credential (n8n's generic credential type for APIs without a dedicated node — Moonshot doesn't have one):
+   - In n8n: **Credentials → New → search "Header Auth"**
+   - **Name** field: `Authorization`
+   - **Value** field: `Bearer sk-fL4BfJMmPRhyWa8MOZ50qQ1SXN6L2tHNo5WwXF63uqbri3qb`
+   - Save it (call it something like "Moonshot API"), then select it in the node's **Authentication → Generic Credential Type → Header Auth** field.
+   - This replaces the earlier version, which had the key hardcoded directly in the node's headers — same security concern flagged for the WordPress credential, now fixed the same way.
+4. **Create WordPress Draft node** — set **Authentication → Generic Credential Type → Basic Auth**, credential = your mydefilife.com WordPress Application Password (username + the generated app password, not your normal login password).
+5. Activate the workflow.
+
+**Note on the key itself**: this is a different Moonshot key than the one already embedded in the `/schedule` cloud routines and local `.env` files elsewhere in this project (`sk-nozswZm...`). I haven't touched those — only this n8n workflow now uses the new key. Let me know if you want the new key rotated in everywhere instead of just here.
 
 No `yt-dlp` install and no Execute Command dependency needed anymore — steps 3-4 (the old yt-dlp requirement) are gone.
 

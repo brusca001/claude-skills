@@ -193,24 +193,27 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.moonshot.ai/v1/chat/completions",
-        "authentication": "none",
+        "authentication": "genericCredentialType",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer sk-nozswZm18lcuy0vZE2xq5qPWODrbtPDW94TyJXShBNcDCJ5E"
             }
           ]
         },
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "{\"model\": \"kimi-k2.5\", \"temperature\": 1, \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
+        "jsonBody": "{\"model\": \"kimi-k2.5\", \"temperature\": 1, \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SELECT_YOUR_MOONSHOT_HEADER_AUTH_CREDENTIAL"
+        }
       }
     },
     {
