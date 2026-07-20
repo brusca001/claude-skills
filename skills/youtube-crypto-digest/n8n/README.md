@@ -41,14 +41,22 @@ Tested locally (video ID extraction, caption-track-URL regex, XML entity decodin
 
 No `yt-dlp` install and no Execute Command dependency needed anymore — steps 3-4 (the old yt-dlp requirement) are gone.
 
+## Fixed via real production data: CRLF line-ending bug
+
+A real reply from `mdl@mydefilife.com` (Apple Mail-style quoting: `On [date], at [time], [email] wrote:`) came back with `isDigestReply: false` despite the reply body itself parsing correctly (`selectedNumber: "5"`) — `videoMap` was completely empty, meaning the video-list regex matched *zero* lines even though all 5 were clearly present in `rawTextPlain`.
+
+**Root cause**: the email body uses `\r\n` (CRLF) line endings. Splitting only on `\n` left a trailing `\r` on every line. In JavaScript regex, `\r` is a line-terminator character — `.` doesn't match it and `$` (without the `m` flag) requires being at the true end of the line-string, so a trailing `\r` silently breaks `/^\s*(\d+)\.\s+(.+)$/` on every single line. No error was thrown; it just matched nothing.
+
+**Fix**: normalize `text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')` before splitting into lines, in `Parse Reply & Select Video`. Verified against the *exact* real `rawTextPlain` from the failed execution shown above — all 5 videos now parse correctly and `isDigestReply: true` / `selectedNumber: "5"` / correct title+URL are produced.
+
+This also confirms the reply-parsing logic itself (quote-boundary detection, number extraction, title/URL matching) is correct against real `mdl@mydefilife.com` mail — it was purely the CRLF handling that was broken.
+
 ## Known risks / most likely things to need adjusting
 
-1. **The reply-parsing regex** (`Parse Reply & Select Video`) is tuned for standard Gmail-style quoting (verified locally with a realistic sample). If `mdl@mydefilife.com`'s mail client quotes differently, this needs adjusting — its error output includes `rawTextPlain` (the full original email) so you can see the actual format and tell me what to fix.
-2. **YouTube's watch-page HTML structure can change.** The `captionTracks` regex is a well-established pattern (same technique multiple popular transcript libraries use) but YouTube could alter their page structure at any time, which would break `Extract Caption Track URL`. If that happens, the failure mode is graceful (falls through to the "no captions available" placeholder, not a crash) but the article quality drops — tell me if drafts start consistently missing transcripts and I'll investigate whether YouTube changed something.
-3. **Region/consent-wall pages.** Some videos or network locations get served a cookie-consent interstitial instead of the real watch page. If `Extract Caption Track URL` consistently fails on videos that should have captions, this is the likely cause — fixable by adding a consent cookie/header, tell me if you hit it.
+1. **YouTube's watch-page HTML structure can change.** The `captionTracks` regex is a well-established pattern (same technique multiple popular transcript libraries use) but YouTube could alter their page structure at any time, which would break `Extract Caption Track URL`. If that happens, the failure mode is graceful (falls through to the "no captions available" placeholder, not a crash) but the article quality drops — tell me if drafts start consistently missing transcripts and I'll investigate whether YouTube changed something.
+2. **Region/consent-wall pages.** Some videos or network locations get served a cookie-consent interstitial instead of the real watch page. If `Extract Caption Track URL` consistently fails on videos that should have captions, this is the likely cause — fixable by adding a consent cookie/header, tell me if you hit it.
 
 ## Notes
 
 - Node types verified against current n8n source (`n8n-io/n8n` on GitHub), including the `options.response.response.responseFormat`/`outputPropertyName` path used to get raw HTML/XML text back from the HTTP Request nodes instead of n8n trying to auto-parse it as JSON.
-- The Moonshot API key is embedded directly in the HTTP Request node's headers (not a separate credential) for simplicity — n8n's own builder guidance recommends a proper header-auth credential instead for security; move it there if you'd prefer, it's the same key already used elsewhere in these workflows.
 - This is a *separate* workflow from `claude-mcp-tools.json` — it isn't an MCP server, it's triggered by an actual email arriving, not by Claude calling a tool.
