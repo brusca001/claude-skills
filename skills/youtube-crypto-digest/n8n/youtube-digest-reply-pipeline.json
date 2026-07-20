@@ -1,0 +1,217 @@
+{
+  "name": "YouTube Digest Reply -> mydefilife Article",
+  "nodes": [
+    {
+      "id": "f5a405c1-0a4d-4936-a88a-6b2a6e7b1395",
+      "name": "Email Trigger (IMAP)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.2,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "format": "simple",
+        "options": {}
+      },
+      "credentials": {
+        "imap": {
+          "id": "",
+          "name": "SELECT_YOUR_MDL_MYDEFILIFE_IMAP_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "id": "5ffd1898-dafd-4a5d-be57-70dd6e99f3b7",
+      "name": "Parse Reply & Select Video",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "const subject = $json.subject || '';\nif (!/YouTube Crypto Digest/i.test(subject)) {\n  return null; // not a reply to our digest, stop the pipeline here\n}\n\nconst text = $json.textPlain || '';\nconst lines = text.split('\\n');\n\n// Find where quoting starts (Gmail-style \"On ... wrote:\" or lines starting with '>')\nlet boundary = lines.length;\nfor (let i = 0; i < lines.length; i++) {\n  const l = lines[i].trim();\n  if (/^On .+wrote:$/.test(l) || l.startsWith('>')) {\n    boundary = i;\n    break;\n  }\n}\n\nconst replyBody = lines.slice(0, boundary).join('\\n').trim();\nconst quoted = lines.slice(boundary).map(l => l.replace(/^>\\s?/, '')).join('\\n');\n\nconst numMatch = replyBody.match(/\\b([1-5])\\b/);\nconst selectedNum = numMatch ? numMatch[1] : null;\n\n// Parse numbered video list from the quoted original digest: \"N. Title (Channel)\" then a URL line\nconst videoMap = {};\nconst qLines = quoted.split('\\n');\nfor (let i = 0; i < qLines.length; i++) {\n  const m = qLines[i].match(/^\\s*(\\d+)\\.\\s+(.+)$/);\n  if (m) {\n    const num = m[1];\n    const title = m[2].trim();\n    let url = null;\n    for (let j = i + 1; j < qLines.length && j < i + 3; j++) {\n      const urlMatch = qLines[j].match(/(https?:\\/\\/\\S+)/);\n      if (urlMatch) { url = urlMatch[1]; break; }\n    }\n    videoMap[num] = { title, url };\n  }\n}\n\nif (!selectedNum || !videoMap[selectedNum] || !videoMap[selectedNum].url) {\n  return {\n    json: {\n      error: 'Could not determine which video was selected',\n      selectedNumber: selectedNum,\n      videoMap,\n      replyBody,\n      rawTextPlain: text,\n    }\n  };\n}\n\nreturn {\n  json: {\n    selectedNumber: selectedNum,\n    selectedTitle: videoMap[selectedNum].title,\n    selectedUrl: videoMap[selectedNum].url,\n    videoMap,\n    replyBody,\n  }\n};"
+      }
+    },
+    {
+      "id": "1190a211-182c-4313-a947-3ae7656b6d9d",
+      "name": "Fetch Transcript (yt-dlp)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ],
+      "parameters": {
+        "executeOnce": false,
+        "command": "cd /tmp && rm -f n8n_transcript*.vtt && yt-dlp --skip-download --write-auto-sub --sub-lang en --sub-format vtt -o \"n8n_transcript.%(ext)s\" \"{{ $json.selectedUrl }}\" 2>&1 && cat n8n_transcript.en.vtt"
+      }
+    },
+    {
+      "id": "f5a6d1fc-2f6b-4777-9d65-9bd7e2988280",
+      "name": "Clean Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        300
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "const vtt = $json.stdout || '';\nconst rawLines = vtt.split('\\n');\nconst textLines = [];\nfor (let line of rawLines) {\n  line = line.trim();\n  if (!line) continue;\n  if (line.startsWith('WEBVTT') || line.startsWith('Kind:') || line.startsWith('Language:')) continue;\n  if (line.includes('-->')) continue;\n  if (/^\\d+$/.test(line)) continue;\n  line = line.replace(/<[^>]+>/g, '');\n  textLines.push(line);\n}\nconst deduped = [];\nfor (const l of textLines) {\n  if (deduped.length === 0 || deduped[deduped.length - 1] !== l) deduped.push(l);\n}\nconst transcript = deduped.join(' ').slice(0, 12000);\n\nreturn {\n  json: {\n    transcript,\n    videoTitle: $('Parse Reply & Select Video').item.json.selectedTitle,\n    videoUrl: $('Parse Reply & Select Video').item.json.selectedUrl,\n  }\n};"
+      }
+    },
+    {
+      "id": "bca20e4b-bcaa-4e9f-9f8a-ae074442a48c",
+      "name": "Generate Article (Moonshot)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1240,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.moonshot.ai/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sk-nozswZm18lcuy0vZE2xq5qPWODrbtPDW94TyJXShBNcDCJ5E"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"model\": \"kimi-k2.5\", \"temperature\": 1, \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
+      }
+    },
+    {
+      "id": "c1e0f980-8cb3-4de5-a1af-227fdd1cc249",
+      "name": "Parse Article JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        300
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $json.choices[0].message.content;\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Clean Transcript').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
+      }
+    },
+    {
+      "id": "ae1b2eab-5007-4b97-92e8-9bc170080d03",
+      "name": "Create WordPress Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://mydefilife.com/wp-json/wp/v2/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({title: $json.title, content: $json.content, status: 'draft'}) }}"
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "SELECT_YOUR_WORDPRESS_APPLICATION_PASSWORD_CREDENTIAL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Parse Reply & Select Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Reply & Select Video": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript (yt-dlp)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript (yt-dlp)": {
+      "main": [
+        [
+          {
+            "node": "Clean Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Transcript": {
+      "main": [
+        [
+          {
+            "node": "Generate Article (Moonshot)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Article (Moonshot)": {
+      "main": [
+        [
+          {
+            "node": "Parse Article JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Article JSON": {
+      "main": [
+        [
+          {
+            "node": "Create WordPress Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

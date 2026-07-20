@@ -1,6 +1,6 @@
 ---
 name: youtube-crypto-digest
-description: Finds 5 recent crypto/DeFi/Solana-meme YouTube videos daily, sends a digest (Telegram locally, Gmail draft in the cloud routine), and summarizes on request via Kimi. Usage — /youtube-crypto-digest, or "run today's youtube crypto digest", or "summarize video 3"
+description: Finds 5 recent crypto/DeFi/Solana-meme YouTube videos daily, sends a digest (Telegram locally, real email to mdl@mydefilife.com in the cloud routine), and — via a separate n8n workflow watching for replies — curates a WordPress draft article from whichever video number you reply with. Usage — /youtube-crypto-digest, or "run today's youtube crypto digest", or "summarize video 3"
 ---
 
 Ported from ClawdBot's `youtube-crypto-digest` skill. The original used the Brave Search API; this version drops that dependency entirely and uses whatever web search tool is already available in the session (Firecrawl locally, WebSearch in a `/schedule` cloud routine) — no new API key needed for discovery.
@@ -16,9 +16,15 @@ Ported from ClawdBot's `youtube-crypto-digest` skill. The original used the Brav
    ```
    (Or use the existing `/telegram` skill instead of `send_telegram.py` — same bot, same result.)
 
-   **Cloud `/schedule` routine**: `api.telegram.org` is blocked by this sandbox's network egress policy (confirmed via diagnostic — only GitHub/PyPI/npm and MCP-connector traffic get through), so `send_telegram.py` will fail there. Use the **Gmail MCP `create_draft`** tool instead, addressed to blvck@brucelevick.com. Note `create_draft` is the only write capability that connector exposes — no send tool exists, so cloud output always lands as a draft requiring a manual send, not a delivered notification.
+   **Cloud `/schedule` routine**: `api.telegram.org` is blocked by this sandbox's network egress policy (confirmed via diagnostic — only GitHub/PyPI/npm and MCP-connector traffic get through), so `send_telegram.py` will fail there. Use the **`send_email` tool on the "Routines" MCP connector** (n8n) instead, addressed to **`mdl@mydefilife.com`** (not blvck@brucelevick.com — that mailbox is what the reply-to-article n8n workflow below watches, so the digest has to land there for reply-threading to work). The digest body must follow the exact numbered format `format_digest.py` produces (`N. Title (Channel)` then a URL line) — a downstream n8n workflow parses replies against this exact shape.
 
-3. **End the routine here.** `/schedule` runs are one-shot/non-interactive — don't wait for a reply. Summarization (step 4) happens as a separate, manually-triggered local invocation later.
+3. **End the routine here.** `/schedule` runs are one-shot/non-interactive — don't wait for a reply.
+
+## Reply-to-article pipeline (separate n8n workflow, not part of the cloud routine)
+
+Reply to a digest email with a number (e.g. "1") and a separate n8n workflow — `n8n/youtube-digest-reply-pipeline.json`, watching `mdl@mydefilife.com` via IMAP — picks it up, extracts that video's info directly from the quoted original message (no Airtable lookup needed), fetches its transcript via `yt-dlp`, drafts an article via Moonshot, and creates it as a **WordPress draft** (not published live) on mydefilife.com for review. See `n8n/README.md` for full setup steps, credentials needed, and a known risk (the reply-parsing regex is tuned for standard Gmail-style quoting — may need adjusting for `mdl@mydefilife.com`'s actual mail client).
+
+This replaces the originally-planned local on-demand summarization flow below for the "pick a video" use case — that still works for manual/local use, but the primary path now is reply-by-email.
 
 ## On-demand summarization ("summarize video N")
 
