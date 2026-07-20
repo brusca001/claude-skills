@@ -2,7 +2,7 @@
   "name": "YouTube Digest Reply -> mydefilife Article",
   "nodes": [
     {
-      "id": "af4a8cbf-1af9-4f7b-b3fa-620ed654e32f",
+      "id": "5c7f4b37-9f16-4035-bf21-4fb1eebc7596",
       "name": "Email Trigger (IMAP)",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2.2,
@@ -26,27 +26,27 @@
       }
     },
     {
-      "id": "d62ee743-b686-4a4e-ba6b-33f15fbe98fc",
+      "id": "65f3577a-5fa6-4fae-abd5-0a98e151e603",
       "name": "Parse Reply & Select Video",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        460,
+        440,
         300
       ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const subject = $json.subject || '';\nconst isDigestSubject = /YouTube Crypto Digest/i.test(subject);\n\nif (!isDigestSubject) {\n  return { json: { isDigestReply: false, reason: 'subject did not match', subject } };\n}\n\nconst text = $json.textPlain || '';\nconst lines = text.split('\\n');\n\n// Find where quoting starts (Gmail-style \"On ... wrote:\" or lines starting with '>')\nlet boundary = lines.length;\nfor (let i = 0; i < lines.length; i++) {\n  const l = lines[i].trim();\n  if (/^On .+wrote:$/.test(l) || l.startsWith('>')) {\n    boundary = i;\n    break;\n  }\n}\n\nconst replyBody = lines.slice(0, boundary).join('\\n').trim();\nconst quoted = lines.slice(boundary).map(l => l.replace(/^>\\s?/, '')).join('\\n');\n\nconst numMatch = replyBody.match(/\\b([1-5])\\b/);\nconst selectedNum = numMatch ? numMatch[1] : null;\n\n// Parse numbered video list from the quoted original digest: \"N. Title (Channel)\" then a URL line\nconst videoMap = {};\nconst qLines = quoted.split('\\n');\nfor (let i = 0; i < qLines.length; i++) {\n  const m = qLines[i].match(/^\\s*(\\d+)\\.\\s+(.+)$/);\n  if (m) {\n    const num = m[1];\n    const title = m[2].trim();\n    let url = null;\n    for (let j = i + 1; j < qLines.length && j < i + 3; j++) {\n      const urlMatch = qLines[j].match(/(https?:\\/\\/\\S+)/);\n      if (urlMatch) { url = urlMatch[1]; break; }\n    }\n    videoMap[num] = { title, url };\n  }\n}\n\nconst selected = selectedNum ? videoMap[selectedNum] : null;\n\nif (!selected || !selected.url) {\n  return {\n    json: {\n      isDigestReply: false,\n      reason: 'could not resolve a selected video from the reply',\n      selectedNumber: selectedNum,\n      videoMap,\n      replyBody,\n      rawTextPlain: text,\n    }\n  };\n}\n\nreturn {\n  json: {\n    isDigestReply: true,\n    selectedNumber: selectedNum,\n    selectedTitle: selected.title,\n    selectedUrl: selected.url,\n    videoMap,\n    replyBody,\n  }\n};"
+        "jsCode": "const subject = $json.subject || '';\nconst isDigestSubject = /YouTube Crypto Digest/i.test(subject);\n\nif (!isDigestSubject) {\n  return { json: { isDigestReply: false, reason: 'subject did not match', subject } };\n}\n\nconst text = $json.textPlain || '';\nconst lines = text.split('\\n');\n\nlet boundary = lines.length;\nfor (let i = 0; i < lines.length; i++) {\n  const l = lines[i].trim();\n  if (/^On .+wrote:$/.test(l) || l.startsWith('>')) {\n    boundary = i;\n    break;\n  }\n}\n\nconst replyBody = lines.slice(0, boundary).join('\\n').trim();\nconst quoted = lines.slice(boundary).map(l => l.replace(/^>\\s?/, '')).join('\\n');\n\nconst numMatch = replyBody.match(/\\b([1-5])\\b/);\nconst selectedNum = numMatch ? numMatch[1] : null;\n\nconst videoMap = {};\nconst qLines = quoted.split('\\n');\nfor (let i = 0; i < qLines.length; i++) {\n  const m = qLines[i].match(/^\\s*(\\d+)\\.\\s+(.+)$/);\n  if (m) {\n    const num = m[1];\n    const title = m[2].trim();\n    let url = null;\n    for (let j = i + 1; j < qLines.length && j < i + 3; j++) {\n      const urlMatch = qLines[j].match(/(https?:\\/\\/\\S+)/);\n      if (urlMatch) { url = urlMatch[1]; break; }\n    }\n    videoMap[num] = { title, url };\n  }\n}\n\nconst selected = selectedNum ? videoMap[selectedNum] : null;\n\nif (!selected || !selected.url) {\n  return {\n    json: {\n      isDigestReply: false,\n      reason: 'could not resolve a selected video from the reply',\n      selectedNumber: selectedNum,\n      videoMap,\n      replyBody,\n      rawTextPlain: text,\n    }\n  };\n}\n\nreturn {\n  json: {\n    isDigestReply: true,\n    selectedNumber: selectedNum,\n    selectedTitle: selected.title,\n    selectedUrl: selected.url,\n    videoMap,\n    replyBody,\n  }\n};"
       }
     },
     {
-      "id": "30459a34-ffc0-4fc5-a24c-5d6a7d8cfa59",
+      "id": "0791b31f-fb02-4d26-891e-ef6490873df7",
       "name": "Is Valid Digest Reply?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        720,
+        680,
         300
       ],
       "parameters": {
@@ -73,41 +73,121 @@
       }
     },
     {
-      "id": "c6db07ff-9320-4daf-a22b-df1eb4d6f163",
-      "name": "Fetch Transcript (yt-dlp)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        980,
-        220
-      ],
-      "parameters": {
-        "executeOnce": false,
-        "command": "cd /tmp && rm -f n8n_transcript*.vtt; yt-dlp --skip-download --write-auto-sub --sub-lang en --sub-format vtt -o \"n8n_transcript.%(ext)s\" \"{{ $json.selectedUrl }}\" > /tmp/ytdlp.log 2>&1; if ls n8n_transcript*.vtt 1> /dev/null 2>&1; then cat n8n_transcript*.vtt; else echo \"NO_TRANSCRIPT_AVAILABLE\"; fi"
-      }
-    },
-    {
-      "id": "ab42b75c-3ce5-4c6d-9af2-047e66b8c6a6",
-      "name": "Clean Transcript",
+      "id": "c587fcc9-6552-49cc-b62f-3868a071930e",
+      "name": "Extract Video ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1240,
+        920,
         220
       ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const stdout = $json.stdout || '';\n\nif (stdout.trim() === 'NO_TRANSCRIPT_AVAILABLE') {\n  return {\n    json: {\n      transcript: '(No auto-captions were available for this video. Article will be based on the title only -- expect a thin draft, review carefully.)',\n      videoTitle: $('Parse Reply & Select Video').item.json.selectedTitle,\n      videoUrl: $('Parse Reply & Select Video').item.json.selectedUrl,\n      hasTranscript: false,\n    }\n  };\n}\n\nconst rawLines = stdout.split('\\n');\nconst textLines = [];\nfor (let line of rawLines) {\n  line = line.trim();\n  if (!line) continue;\n  if (line.startsWith('WEBVTT') || line.startsWith('Kind:') || line.startsWith('Language:')) continue;\n  if (line.includes('-->')) continue;\n  if (/^\\d+$/.test(line)) continue;\n  line = line.replace(/<[^>]+>/g, '');\n  textLines.push(line);\n}\nconst deduped = [];\nfor (const l of textLines) {\n  if (deduped.length === 0 || deduped[deduped.length - 1] !== l) deduped.push(l);\n}\nconst transcript = deduped.join(' ').slice(0, 12000);\n\nreturn {\n  json: {\n    transcript: transcript || '(Transcript was empty after cleaning.)',\n    videoTitle: $('Parse Reply & Select Video').item.json.selectedTitle,\n    videoUrl: $('Parse Reply & Select Video').item.json.selectedUrl,\n    hasTranscript: transcript.length > 0,\n  }\n};"
+        "jsCode": "const url = $json.selectedUrl || '';\nconst patterns = [\n  /(?:youtube\\.com\\/watch\\?v=|youtu\\.be\\/|youtube\\.com\\/embed\\/|youtube\\.com\\/shorts\\/)([a-zA-Z0-9_-]{11})/\n];\nlet videoId = null;\nfor (const p of patterns) {\n  const m = url.match(p);\n  if (m) { videoId = m[1]; break; }\n}\n\nreturn {\n  json: {\n    ...$json,\n    videoId,\n    watchUrl: videoId ? ('https://www.youtube.com/watch?v=' + videoId) : null,\n  }\n};"
       }
     },
     {
-      "id": "8abaa181-3d29-4c17-b865-38d2d86211a3",
+      "id": "f9371f0a-25a0-43e2-a5b7-cc2c843ab8b8",
+      "name": "Fetch YouTube Watch Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        220
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.watchUrl }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "60bbb035-aedc-4ae7-a30f-ffd3cb4705df",
+      "name": "Extract Caption Track URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        220
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "const html = $json.data || '';\nconst videoTitle = $('Parse Reply & Select Video').item.json.selectedTitle;\nconst videoUrl = $('Parse Reply & Select Video').item.json.selectedUrl;\n\nconst match = html.match(/\"captionTracks\":(\\[.*?\\])(?=,\")/) || html.match(/\"captionTracks\":(\\[.*?\\])/);\nif (!match) {\n  return { json: { transcriptAvailable: false, captionUrl: '', videoTitle, videoUrl } };\n}\n\nlet tracks;\ntry {\n  tracks = JSON.parse(match[1]);\n} catch (e) {\n  return { json: { transcriptAvailable: false, captionUrl: '', videoTitle, videoUrl } };\n}\n\nconst track = tracks.find(t => t.languageCode === 'en')\n  || tracks.find(t => (t.languageCode || '').startsWith('en'))\n  || tracks[0];\n\nif (!track || !track.baseUrl) {\n  return { json: { transcriptAvailable: false, captionUrl: '', videoTitle, videoUrl } };\n}\n\nconst captionUrl = track.baseUrl.replace(/\\\\u0026/g, '&');\nreturn { json: { transcriptAvailable: true, captionUrl, videoTitle, videoUrl } };"
+      }
+    },
+    {
+      "id": "f9dfb587-5c06-46b7-a98f-2c6dfeda1549",
+      "name": "Fetch Transcript XML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        220
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.captionUrl }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ceebf04c-47bf-4865-8546-3e10ca129f66",
+      "name": "Parse Transcript XML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        220
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "const xml = $json.data || '';\nconst prev = $('Extract Caption Track URL').item.json;\nconst videoTitle = prev.videoTitle;\nconst videoUrl = prev.videoUrl;\nconst transcriptAvailable = prev.transcriptAvailable;\n\nfunction decodeEntities(s) {\n  return s\n    .replace(/&amp;/g, '&')\n    .replace(/&#39;/g, \"'\")\n    .replace(/&quot;/g, '\"')\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>');\n}\n\nif (!transcriptAvailable || !xml || !xml.includes('<text')) {\n  return {\n    json: {\n      transcript: '(No auto-captions were available for this video. Article will be based on the title only -- expect a thin draft, review carefully.)',\n      videoTitle,\n      videoUrl,\n      hasTranscript: false,\n    }\n  };\n}\n\nconst matches = [...xml.matchAll(/<text[^>]*>([\\s\\S]*?)<\\/text>/g)];\nconst decoded = matches\n  .map(m => decodeEntities(m[1]))\n  .join(' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nreturn {\n  json: {\n    transcript: (decoded || '(Transcript was empty after parsing.)').slice(0, 12000),\n    videoTitle,\n    videoUrl,\n    hasTranscript: decoded.length > 0,\n  }\n};"
+      }
+    },
+    {
+      "id": "89929494-e999-4f3f-ad7d-4c6b2087b6dd",
       "name": "Generate Article (Moonshot)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1500,
+        2120,
         220
       ],
       "parameters": {
@@ -134,27 +214,27 @@
       }
     },
     {
-      "id": "efa83f1d-0fec-48e2-8d29-8b530edb5ec6",
+      "id": "209bb9fc-7672-4e29-b735-3b0307a0993b",
       "name": "Parse Article JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
+        2360,
         220
       ],
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const raw = $json.choices[0].message.content;\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Clean Transcript').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
+        "jsCode": "const raw = $json.choices[0].message.content;\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Parse Transcript XML').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
       }
     },
     {
-      "id": "e9abd7c2-bf48-412e-bcf0-5bf1cd466fd2",
+      "id": "17a4d911-be39-4dfd-9a7f-d825902a3410",
       "name": "Create WordPress Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2020,
+        2600,
         220
       ],
       "parameters": {
@@ -202,7 +282,7 @@
       "main": [
         [
           {
-            "node": "Fetch Transcript (yt-dlp)",
+            "node": "Extract Video ID",
             "type": "main",
             "index": 0
           }
@@ -210,18 +290,51 @@
         []
       ]
     },
-    "Fetch Transcript (yt-dlp)": {
+    "Extract Video ID": {
       "main": [
         [
           {
-            "node": "Clean Transcript",
+            "node": "Fetch YouTube Watch Page",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Clean Transcript": {
+    "Fetch YouTube Watch Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Caption Track URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Caption Track URL": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Transcript XML": {
+      "main": [
+        [
+          {
+            "node": "Parse Transcript XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Transcript XML": {
       "main": [
         [
           {
