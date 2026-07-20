@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Draft-only social post suggestions from the day's sentiment results, via Kimi/Moonshot.
+X/Twitter-only post draft from the day's sentiment results, via Kimi/Moonshot.
 
-NEVER auto-publishes — writes drafts to data/social_drafts_<date>.json for human review.
-If you want to actually post one, use the existing local `blotato` skill/MCP tools manually.
+Local runs (this script): draft-only, writes to data/social_drafts_<date>.json for human
+review. If you want to actually post one, use the local `blotato` skill/MCP tools manually.
+
+Cloud routine: drafts the same way (agent's own reasoning, not this script, since Moonshot
+is blocked there) but DOES auto-post via the Blotato MCP connector — see SKILL.md.
 """
 
 import json
@@ -14,17 +17,15 @@ from model_client import chat
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 
-PROMPT_TEMPLATE = """You are drafting social media posts about today's crypto market sentiment. Be concise, factual, no hype, no financial advice framing (no "buy now" language).
+PROMPT_TEMPLATE = """You are drafting a single X/Twitter post about today's crypto market sentiment. Be concise, factual, no hype, no financial advice framing (no "buy now" language), under 260 characters.
 
 Today's sentiment snapshot (keyword: bullish%/bearish%/volume):
 {snapshot}
 
 Spike alerts (>50% mention increase vs 7-day baseline): {spikes}
 
-Write ONE short draft for each of: twitter (<260 chars), linkedin (2-3 sentences, more analytical tone), threads (<400 chars, casual), bluesky (<280 chars).
-
 Respond as JSON only, no markdown fences:
-{{"twitter": "...", "linkedin": "...", "threads": "...", "bluesky": "..."}}"""
+{{"twitter": "..."}}"""
 
 
 def build_snapshot_text(results: dict, top_n: int = 8) -> tuple[str, str]:
