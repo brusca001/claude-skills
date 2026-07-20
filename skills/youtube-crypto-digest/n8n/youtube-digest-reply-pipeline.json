@@ -288,6 +288,61 @@
         },
         "options": {}
       }
+    },
+    {
+      "id": "995c62c0-ad59-49f9-aad2-c673f2c51edc",
+      "name": "Transcribe via Whisper (VPS)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        380
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://213.210.13.146:3600/transcript",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "OMg60PawXzKbGb6rY1ef5ZHQIvplzSK9Uks9lOlYEtw"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({videoUrl: $json.videoUrl}) }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "75ba69a8-264d-414d-863c-ec4cbbe3cd3c",
+      "name": "Format Whisper Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        380
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForEachItem",
+        "jsCode": "const resp = $json;\nconst prev = $('Extract Caption Track URL').item.json;\nconst videoTitle = prev.videoTitle;\nconst videoUrl = prev.videoUrl;\n\nif (!resp || !resp.hasTranscript || !resp.transcript) {\n  return {\n    json: {\n      transcript: '(No auto-captions were available and Whisper transcription failed or found no speech. Article will be based on the title only -- expect a thin draft, review carefully.)',\n      videoTitle,\n      videoUrl,\n      hasTranscript: false,\n    }\n  };\n}\n\nreturn {\n  json: {\n    transcript: resp.transcript,\n    videoTitle,\n    videoUrl,\n    hasTranscript: true,\n  }\n};"
+      }
     }
   ],
   "connections": {
@@ -413,7 +468,29 @@
         ],
         [
           {
-            "node": "Parse Transcript XML",
+            "node": "Transcribe via Whisper (VPS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe via Whisper (VPS)": {
+      "main": [
+        [
+          {
+            "node": "Format Whisper Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Whisper Transcript": {
+      "main": [
+        [
+          {
+            "node": "Generate Article (Moonshot)",
             "type": "main",
             "index": 0
           }
