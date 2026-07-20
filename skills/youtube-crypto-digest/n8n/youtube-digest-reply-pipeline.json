@@ -140,7 +140,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1640,
+        1880,
         220
       ],
       "parameters": {
@@ -172,7 +172,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1880,
+        2120,
         220
       ],
       "parameters": {
@@ -187,7 +187,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2120,
+        2360,
         220
       ],
       "parameters": {
@@ -222,7 +222,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2360,
+        2600,
         220
       ],
       "parameters": {
@@ -237,7 +237,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2600,
+        2840,
         220
       ],
       "parameters": {
@@ -255,6 +255,38 @@
           "id": "",
           "name": "SELECT_YOUR_WORDPRESS_APPLICATION_PASSWORD_CREDENTIAL"
         }
+      }
+    },
+    {
+      "id": "d33ff178-d4e2-4483-8031-7874d62dc222",
+      "name": "Has Caption URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1400,
+        220
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.captionUrl }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ]
+        },
+        "options": {}
       }
     }
   ],
@@ -319,7 +351,7 @@
       "main": [
         [
           {
-            "node": "Fetch Transcript XML",
+            "node": "Has Caption URL?",
             "type": "main",
             "index": 0
           }
@@ -364,6 +396,24 @@
         [
           {
             "node": "Create WordPress Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Caption URL?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Transcript XML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Transcript XML",
             "type": "main",
             "index": 0
           }

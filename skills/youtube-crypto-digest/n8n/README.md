@@ -11,12 +11,13 @@ Import `youtube-digest-reply-pipeline.json` into n8n. Reply-to-article pipeline:
 3. **Is Valid Digest Reply?** (If node) — routes on `isDigestReply`. True → continues. False → dropped, pipeline ends cleanly here (verified against n8n's source: the If node's false branch is intentionally left unconnected — that's the correct, documented way to drop non-matching items).
 4. **Extract Video ID** (Code node) — pulls the 11-character YouTube video ID out of the selected URL (handles `youtube.com/watch?v=`, `youtu.be/`, `/embed/`, `/shorts/` forms).
 5. **Fetch YouTube Watch Page** (HTTP Request) — `GET` the video's normal watch page HTML with a browser User-Agent header. `neverError: true` set so a bad/removed video doesn't crash the node — handled gracefully downstream instead.
-6. **Extract Caption Track URL** (Code node) — regexes the embedded `"captionTracks":[...]` JSON out of the watch page HTML (this is server-rendered, part of `ytInitialPlayerResponse` — no JS execution needed), picks the English track, unescapes its `baseUrl`.
-7. **Fetch Transcript XML** (HTTP Request) — `GET`s that caption track URL, which returns the transcript as XML (`<text start="..." dur="...">...</text>` per line). Also `neverError: true`.
-8. **Parse Transcript XML** (Code node) — strips XML tags/entities down to plain transcript text, or falls back to a clearly-flagged placeholder if no captions were found at any prior step.
-9. **Generate Article (Moonshot)** (HTTP Request) — calls `api.moonshot.ai` (same Kimi key already used elsewhere) to write an 800-1200 word article as JSON `{title, content}`.
-10. **Parse Article JSON** (Code node) — extracts title/content, with a fallback if the model didn't return clean JSON.
-11. **Create WordPress Draft** (HTTP Request) — `POST /wp-json/wp/v2/posts` with `status: draft` — lands as a draft for review, never auto-publishes live, per your explicit choice.
+6. **Extract Caption Track URL** (Code node) — regexes the embedded `"captionTracks":[...]` JSON out of the watch page HTML (this is server-rendered, part of `ytInitialPlayerResponse` — no JS execution needed), picks the English track, unescapes its `baseUrl`. Sets `transcriptAvailable: false` and `captionUrl: ''` if none found.
+7. **Has Caption URL?** (If node) — routes on `captionUrl` being non-empty. True → fetches the actual transcript. False → skips straight to `Parse Transcript XML` (see "Fixed: empty captionUrl crash" below for why this gate exists).
+8. **Fetch Transcript XML** (HTTP Request) — `GET`s the caption track URL, which returns the transcript as XML (`<text start="..." dur="...">...</text>` per line). `neverError: true`.
+9. **Parse Transcript XML** (Code node) — strips XML tags/entities down to plain transcript text, or falls back to a clearly-flagged placeholder if no captions were found at any prior step. Reached from both branches of the "Has Caption URL?" gate.
+10. **Generate Article (Moonshot)** (HTTP Request) — calls `api.moonshot.ai` (Header Auth credential) to write an 800-1200 word article as JSON `{title, content}`.
+11. **Parse Article JSON** (Code node) — extracts title/content, with a fallback if the model didn't return clean JSON.
+12. **Create WordPress Draft** (HTTP Request) — `POST /wp-json/wp/v2/posts` with `status: draft` — lands as a draft for review, never auto-publishes live, per your explicit choice.
 
 ## Why the transcript fetch changed
 
@@ -50,6 +51,16 @@ A real reply from `mdl@mydefilife.com` (Apple Mail-style quoting: `On [date], at
 **Fix**: normalize `text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')` before splitting into lines, in `Parse Reply & Select Video`. Verified against the *exact* real `rawTextPlain` from the failed execution shown above — all 5 videos now parse correctly and `isDigestReply: true` / `selectedNumber: "5"` / correct title+URL are produced.
 
 This also confirms the reply-parsing logic itself (quote-boundary detection, number extraction, title/URL matching) is correct against real `mdl@mydefilife.com` mail — it was purely the CRLF handling that was broken.
+
+## Fixed: empty captionUrl crash
+
+Caught this via a real execution where `Extract Caption Track URL` correctly returned `transcriptAvailable: false, captionUrl: ''` for a video with no auto-captions ("Japan Just BLEW PAST the U.S. on Crypto!!..."). The *next* node, `Fetch Transcript XML`, does `GET {{ $json.captionUrl }}` — and n8n's HTTP Request node validates the URL parameter before making any request or checking `neverError`:
+
+```
+if (!url) { throw new NodeOperationError(this.getNode(), 'URL parameter cannot be empty'); }
+```
+
+So an empty `captionUrl` would have thrown and crashed the run on the very next execution, independent of `neverError`. Fixed by adding the **Has Caption URL?** If node: when `captionUrl` is empty, the item skips `Fetch Transcript XML` entirely and goes straight to `Parse Transcript XML`, which already reads `transcriptAvailable` from the named node reference (`$('Extract Caption Track URL').item.json`) rather than from its direct input — so it correctly produces the "no captions available" placeholder either way, with no changes needed to that node. Verified with the exact real data from this video.
 
 ## Known risks / most likely things to need adjusting
 
