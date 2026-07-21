@@ -183,7 +183,7 @@
     },
     {
       "id": "89929494-e999-4f3f-ad7d-4c6b2087b6dd",
-      "name": "Generate Article (Moonshot)",
+      "name": "Generate Article (Claude)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -192,27 +192,31 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://api.moonshot.ai/v1/chat/completions",
-        "authentication": "genericCredentialType",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Content-Type",
               "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
             }
           ]
         },
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "{\"model\": \"kimi-k2.5\", \"temperature\": 1, \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}",
-        "genericAuthType": "httpHeaderAuth"
+        "jsonBody": "{\"model\": \"claude-sonnet-5\", \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
       },
       "credentials": {
-        "httpHeaderAuth": {
+        "anthropicApi": {
           "id": "",
-          "name": "SELECT_YOUR_MOONSHOT_HEADER_AUTH_CREDENTIAL"
+          "name": "SELECT_YOUR_ANTHROPIC_CREDENTIAL"
         }
       }
     },
@@ -228,7 +232,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const raw = $json.choices[0].message.content;\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Parse Transcript XML').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
+        "jsCode": "const raw = $json.content[0].text;\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Parse Transcript XML').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
       }
     },
     {
@@ -431,14 +435,14 @@
       "main": [
         [
           {
-            "node": "Generate Article (Moonshot)",
+            "node": "Generate Article (Claude)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generate Article (Moonshot)": {
+    "Generate Article (Claude)": {
       "main": [
         [
           {
@@ -493,7 +497,7 @@
       "main": [
         [
           {
-            "node": "Generate Article (Moonshot)",
+            "node": "Generate Article (Claude)",
             "type": "main",
             "index": 0
           }

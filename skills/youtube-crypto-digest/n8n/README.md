@@ -17,7 +17,7 @@ Import `youtube-digest-reply-pipeline.json` into n8n. Reply-to-article pipeline:
 9. **Parse Transcript XML** (Code node) — strips XML tags/entities down to plain transcript text, or falls back to a clearly-flagged placeholder if the XML is somehow empty/malformed.
 10. **Fetch Transcript (TranscriptAPI)** (HTTP Request, false branch of step 7) — calls the [transcriptapi.com](https://transcriptapi.com) commercial transcript API (`GET /api/v2/youtube/transcript?video_url=...`, Header Auth credential), which resolves transcripts YouTube's own watch-page HTML didn't expose. `neverError: true`, 30s timeout.
 11. **Format TranscriptAPI Transcript** (Code node) — joins the returned `transcript[].text` segments into plain text, normalizing to the same shape `Parse Transcript XML` produces, so both paths converge cleanly.
-12. **Generate Article (Moonshot)** (HTTP Request) — calls `api.moonshot.ai` (Header Auth credential) to write an 800-1200 word article as JSON `{title, content}`. Reached from both transcript paths.
+12. **Generate Article (Claude)** (HTTP Request) — calls `api.anthropic.com/v1/messages` (n8n's built-in **Predefined Credential Type → Anthropic**, model `claude-sonnet-5`) to write an 800-1200 word article as JSON `{title, content}`. Reached from both transcript paths. Originally used Moonshot/Kimi — switched to Claude; see "Why Claude instead of Moonshot" below.
 13. **Parse Article JSON** (Code node) — extracts title/content, with a fallback if the model didn't return clean JSON.
 14. **Create WordPress Draft** (HTTP Request) — `POST /wp-json/wp/v2/posts` with `status: draft` — lands as a draft for review, never auto-publishes live, per your explicit choice.
 
@@ -31,12 +31,11 @@ Tested locally (video ID extraction, caption-track-URL regex, XML entity decodin
 
 1. **Import the workflow.**
 2. **Email Trigger (IMAP) node** — set up an IMAP credential for `mdl@mydefilife.com` and select it. The `youtube-crypto-digest` cloud routine sends the daily digest there (not `blvck@brucelevick.com`) specifically so replies land in the mailbox this workflow watches.
-3. **Generate Article (Moonshot) node** — set up a **Header Auth** credential (n8n's generic credential type for APIs without a dedicated node — Moonshot doesn't have one):
-   - In n8n: **Credentials → New → search "Header Auth"**
-   - **Name** field: `Authorization`
-   - **Value** field: `Bearer sk-fL4BfJMmPRhyWa8MOZ50qQ1SXN6L2tHNo5WwXF63uqbri3qb`
-   - Save it (call it something like "Moonshot API"), then select it in the node's **Authentication → Generic Credential Type → Header Auth** field.
-   - This replaces the earlier version, which had the key hardcoded directly in the node's headers — same security concern flagged for the WordPress credential, now fixed the same way.
+3. **Generate Article (Claude) node** — n8n ships a dedicated Anthropic credential type, so this is simpler than the old Moonshot setup:
+   - In n8n: **Credentials → New → search "Anthropic"**
+   - **API Key** field: your Anthropic API key
+   - Save it, then on the node select **Authentication → Predefined Credential Type → Credential Type: Anthropic** → your saved credential.
+   - n8n's Anthropic credential auto-injects the `x-api-key` header, but **not** `anthropic-version` — that header is added manually in the node's Headers (`anthropic-version: 2023-06-01`), since Anthropic's API rejects requests without it. (Verified directly against n8n's `AnthropicApi.credentials.ts` source — its `authenticate()` only sets `x-api-key`.)
 4. **Create WordPress Draft node** — set **Authentication → Generic Credential Type → Basic Auth**, credential = your mydefilife.com WordPress Application Password (username + the generated app password, not your normal login password).
 5. **Fetch Transcript (TranscriptAPI) node** — set up a **Header Auth** credential the same way as Moonshot:
    - In n8n: **Credentials → New → search "Header Auth"**
@@ -46,9 +45,15 @@ Tested locally (video ID extraction, caption-track-URL regex, XML entity decodin
    - Save it, then select it in the node's **Authentication → Generic Credential Type → Header Auth** field.
 6. Activate the workflow.
 
-**Note on the key itself**: this is a different Moonshot key than the one already embedded in the `/schedule` cloud routines and local `.env` files elsewhere in this project (`sk-nozswZm...`). I haven't touched those — only this n8n workflow now uses the new key. Let me know if you want the new key rotated in everywhere instead of just here.
-
 No `yt-dlp` install and no Execute Command dependency needed anymore — steps 3-4 (the old yt-dlp requirement) are gone.
+
+## Why Claude instead of Moonshot
+
+This node originally called Moonshot/Kimi (`kimi-k2.5`), same as the `/schedule` cloud routines and local `.env` files elsewhere in this project still do — those are untouched, this change is scoped to this one workflow's article-generation node only. Switched to Claude (`claude-sonnet-5` via `api.anthropic.com/v1/messages`) per your request. Two response-shape differences from the Moonshot/OpenAI-style setup that had to be accounted for:
+
+- **Auth**: Anthropic uses `x-api-key` (n8n's built-in Anthropic credential handles this) instead of `Authorization: Bearer`, plus a required `anthropic-version` header not covered by the credential.
+- **Response body**: Claude returns `{"content": [{"type": "text", "text": "..."}]}`, not `{"choices": [{"message": {"content": "..."}}]}` — `Parse Article JSON` reads `$json.content[0].text` now instead of `$json.choices[0].message.content`.
+- No `temperature: 1` requirement — that was a Moonshot-specific constraint (it rejected any other value); Claude doesn't need it, so it was dropped from the request body.
 
 ## Fixed via real production data: CRLF line-ending bug
 
@@ -87,7 +92,7 @@ So an empty `captionUrl` would have thrown and crashed the run on the very next 
 
 For "a few dozen requests/month" the free tier alone likely covers this indefinitely; the $5/mo paid tier (1,000 credits) is wildly more headroom than needed if/when the free credits run out.
 
-**How it's wired**: `Fetch Transcript (TranscriptAPI)` — `GET https://transcriptapi.com/api/v2/youtube/transcript?video_url={{ $json.videoUrl }}&format=json`, Header Auth credential (`Authorization: Bearer <key>`), `neverError: true`, 30s timeout (this is a real API, not a multi-minute audio download, so no need for the old 10-minute Whisper timeout). Response shape is `{"transcript": [{"text": "...", "start": 0.0, "duration": ...}, ...], ...}`. `Format TranscriptAPI Transcript` joins the `text` fields into plain text and normalizes to the same `{transcript, videoTitle, videoUrl, hasTranscript}` shape `Parse Transcript XML` produces, so both paths converge into `Generate Article (Moonshot)` identically.
+**How it's wired**: `Fetch Transcript (TranscriptAPI)` — `GET https://transcriptapi.com/api/v2/youtube/transcript?video_url={{ $json.videoUrl }}&format=json`, Header Auth credential (`Authorization: Bearer <key>`), `neverError: true`, 30s timeout (this is a real API, not a multi-minute audio download, so no need for the old 10-minute Whisper timeout). Response shape is `{"transcript": [{"text": "...", "start": 0.0, "duration": ...}, ...], ...}`. `Format TranscriptAPI Transcript` joins the `text` fields into plain text and normalizes to the same `{transcript, videoTitle, videoUrl, hasTranscript}` shape `Parse Transcript XML` produces, so both paths converge into `Generate Article (Claude)` identically.
 
 **Cost of this fallback**: near-instant (no audio download/transcription wait), and only fires for the minority of videos with no official captions — so credit usage stays low even well past a few dozen digest replies a month.
 
