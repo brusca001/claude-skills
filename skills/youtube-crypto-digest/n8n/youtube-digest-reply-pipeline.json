@@ -211,7 +211,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "{\"model\": \"claude-sonnet-5\", \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
+        "jsonBody": "={\"model\": \"claude-sonnet-5\", \"max_tokens\": 4000, \"messages\": [{\"role\": \"user\", \"content\": \"Write a WordPress blog article for mydefilife.com based on this YouTube video transcript.\\n\\nVideo title: {{ $json.videoTitle }}\\n\\nTranscript:\\n{{ $json.transcript }}\\n\\nWrite a well-structured 800-1200 word article summarizing and analyzing the video's content for a DeFi/crypto audience. If the transcript says no captions were available, write a shorter piece based on the title alone and note in the content that it's a thin draft needing review. Use HTML paragraph tags in the content. Respond as JSON only, no markdown fences: {\\\"title\\\": \\\"...\\\", \\\"content\\\": \\\"<p>...</p><p>...</p>\\\"}\"}]}"
       },
       "credentials": {
         "anthropicApi": {
@@ -232,7 +232,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const raw = $json.content[0].text;\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Parse Transcript XML').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
+        "jsCode": "const blocks = $json.content || [];\nconst textBlock = blocks.find(b => b.type === 'text');\nconst raw = textBlock ? textBlock.text : '';\n\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Parse Transcript XML').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
       }
     },
     {
