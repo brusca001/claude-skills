@@ -12,11 +12,11 @@ Import `youtube-digest-reply-pipeline.json` into n8n. Reply-to-article pipeline:
 4. **Extract Video ID** (Code node) — pulls the 11-character YouTube video ID out of the selected URL (handles `youtube.com/watch?v=`, `youtu.be/`, `/embed/`, `/shorts/` forms).
 5. **Fetch YouTube Watch Page** (HTTP Request) — `GET` the video's normal watch page HTML with a browser User-Agent header. `neverError: true` set so a bad/removed video doesn't crash the node — handled gracefully downstream instead.
 6. **Extract Caption Track URL** (Code node) — regexes the embedded `"captionTracks":[...]` JSON out of the watch page HTML (this is server-rendered, part of `ytInitialPlayerResponse` — no JS execution needed), picks the English track, unescapes its `baseUrl`. Sets `transcriptAvailable: false` and `captionUrl: ''` if none found.
-7. **Has Caption URL?** (If node) — routes on `captionUrl` being non-empty. True → fetches the official transcript. False → falls back to real audio transcription instead of giving up (see "Whisper VPS fallback" below).
+7. **Has Caption URL?** (If node) — routes on `captionUrl` being non-empty. True → fetches the official transcript. False → falls back to the TranscriptAPI service instead of giving up (see "TranscriptAPI fallback" below).
 8. **Fetch Transcript XML** (HTTP Request) — `GET`s the caption track URL, which returns the transcript as XML (`<text start="..." dur="...">...</text>` per line). `neverError: true`.
 9. **Parse Transcript XML** (Code node) — strips XML tags/entities down to plain transcript text, or falls back to a clearly-flagged placeholder if the XML is somehow empty/malformed.
-10. **Transcribe via Whisper (VPS)** (HTTP Request, false branch of step 7) — calls a Whisper speech-to-text service running on the Hostinger VPS (`213.210.13.146:3600`), which downloads the video's audio and actually transcribes it. 10-minute timeout, `neverError: true`.
-11. **Format Whisper Transcript** (Code node) — normalizes the Whisper response to the same shape `Parse Transcript XML` produces, so both paths converge cleanly.
+10. **Fetch Transcript (TranscriptAPI)** (HTTP Request, false branch of step 7) — calls the [transcriptapi.com](https://transcriptapi.com) commercial transcript API (`GET /api/v2/youtube/transcript?video_url=...`, Header Auth credential), which resolves transcripts YouTube's own watch-page HTML didn't expose. `neverError: true`, 30s timeout.
+11. **Format TranscriptAPI Transcript** (Code node) — joins the returned `transcript[].text` segments into plain text, normalizing to the same shape `Parse Transcript XML` produces, so both paths converge cleanly.
 12. **Generate Article (Moonshot)** (HTTP Request) — calls `api.moonshot.ai` (Header Auth credential) to write an 800-1200 word article as JSON `{title, content}`. Reached from both transcript paths.
 13. **Parse Article JSON** (Code node) — extracts title/content, with a fallback if the model didn't return clean JSON.
 14. **Create WordPress Draft** (HTTP Request) — `POST /wp-json/wp/v2/posts` with `status: draft` — lands as a draft for review, never auto-publishes live, per your explicit choice.
@@ -38,7 +38,13 @@ Tested locally (video ID extraction, caption-track-URL regex, XML entity decodin
    - Save it (call it something like "Moonshot API"), then select it in the node's **Authentication → Generic Credential Type → Header Auth** field.
    - This replaces the earlier version, which had the key hardcoded directly in the node's headers — same security concern flagged for the WordPress credential, now fixed the same way.
 4. **Create WordPress Draft node** — set **Authentication → Generic Credential Type → Basic Auth**, credential = your mydefilife.com WordPress Application Password (username + the generated app password, not your normal login password).
-5. Activate the workflow.
+5. **Fetch Transcript (TranscriptAPI) node** — set up a **Header Auth** credential the same way as Moonshot:
+   - In n8n: **Credentials → New → search "Header Auth"**
+   - **Name** field: `Authorization`
+   - **Value** field: `Bearer <your transcriptapi.com API key>`
+   - Sign up at [transcriptapi.com](https://transcriptapi.com) — 100 free credits to start, no card required, then $5/mo for 1,000 credits if you outgrow the free tier (see "TranscriptAPI fallback" below for why this replaced the Whisper VPS approach).
+   - Save it, then select it in the node's **Authentication → Generic Credential Type → Header Auth** field.
+6. Activate the workflow.
 
 **Note on the key itself**: this is a different Moonshot key than the one already embedded in the `/schedule` cloud routines and local `.env` files elsewhere in this project (`sk-nozswZm...`). I haven't touched those — only this n8n workflow now uses the new key. Let me know if you want the new key rotated in everywhere instead of just here.
 
@@ -62,33 +68,38 @@ Caught this via a real execution where `Extract Caption Track URL` correctly ret
 if (!url) { throw new NodeOperationError(this.getNode(), 'URL parameter cannot be empty'); }
 ```
 
-So an empty `captionUrl` would have thrown and crashed the run on the very next execution, independent of `neverError`. Fixed by adding the **Has Caption URL?** If node — originally just routed the false branch straight to a "no captions" placeholder, now it routes to the Whisper fallback instead (see below), which is strictly better: a real transcript when possible instead of giving up.
+So an empty `captionUrl` would have thrown and crashed the run on the very next execution, independent of `neverError`. Fixed by adding the **Has Caption URL?** If node — originally just routed the false branch straight to a "no captions" placeholder, now it routes to the TranscriptAPI fallback instead (see below), which is strictly better: a real transcript when possible instead of giving up.
 
-## Whisper VPS fallback (real audio transcription)
+## TranscriptAPI fallback (replaced the Whisper VPS approach)
 
-**Why this exists:** the HTML-scrape approach (`Extract Caption Track URL`) can only find transcripts YouTube already generated. For videos with zero official captions, there was previously no way to get real transcript content — the article would be title-only. This adds a genuine fallback: download the video's audio and transcribe it directly with Whisper, for videos the scrape approach can't help with.
+**Why this exists:** the HTML-scrape approach (`Extract Caption Track URL`) can only find transcripts YouTube already generated and exposes in the watch-page HTML. For videos with zero official captions, there was previously no way to get real transcript content — the article would be title-only.
 
-**What's running**: a small Flask service (`whisper_transcript_api.py`, saved in this folder for reference) deployed on the Hostinger VPS at `213.210.13.146:3600`, managed via `pm2` (process name `whisper-transcript-api`), following the exact same pattern as that VPS's existing `ffmpeg-api`/`hf-render` services. `POST /transcript {"videoUrl": "..."}` → `yt-dlp` downloads audio-only → `faster-whisper` (base model, CPU, int8) transcribes it → returns `{"transcript": "...", "hasTranscript": true/false}`. Auth via `X-API-Key` header (shared secret, embedded in the n8n node's headers, same pattern as the Moonshot key before it got a proper credential — consider moving this to a Header Auth credential too if you want).
+**What was tried first, and why it was abandoned:** the original fallback ran a self-hosted `yt-dlp` + `faster-whisper` pipeline on the Hostinger VPS (`whisper_transcript_api.py`, still saved in this folder for reference/potential future use, but no longer wired into this workflow). It worked in isolated CLI testing (cookies + `--js-runtimes node` for the n-challenge), but hit persistent `"Sign in to confirm you're not a bot"` errors in real n8n-triggered usage — even after fixing a real bug where `yt-dlp` was silently corrupting its own cookie jar on every run (`--cookies FILE` is both input *and* output; fixed with a disposable per-request copy, verified via checksum). The bot-detection persisted with genuinely fresh, uncorrupted cookies, which points to the VPS's datacenter IP reputation rather than anything fixable in code — YouTube scrutinizes datacenter IPs far more aggressively than residential ones regardless of cookie validity.
 
-**Real problems hit and fixed while building this** (documenting in case they recur — all three affect *any* server-side yt-dlp usage, not just this):
+**What replaced it:** [transcriptapi.com](https://transcriptapi.com), a commercial YouTube transcript API — chosen as the cheapest current option after comparing it against Supadata.ai, youtube-transcript.io, and SerpApi-style alternatives:
 
-1. **`yt-dlp` binary not on PATH.** Installing `pip install yt-dlp` inside a venv doesn't add it to `PATH` unless the venv is activated — running `pm2 start venv/bin/python3 -- app.py` doesn't activate it. Fixed by calling the full path `venv/bin/yt-dlp` explicitly instead of relying on PATH resolution.
-2. **YouTube bot-detection on the VPS's datacenter IP** — `"Sign in to confirm you're not a bot"`, even with a `--extractor-args youtube:player_client=android` workaround. The only reliable fix is authenticating with real browser cookies (`yt-dlp --cookies cookies.txt`) from a logged-in YouTube session. Per your decision, this uses a **secondary/rarely-used YouTube account's cookies**, not your primary one — isolates any account-level consequences (rate-limiting/challenges are the realistic risk, not a "ban" in the copyright-strike sense) away from anything business-critical. The exported cookies file was trimmed from a 2387-line whole-browser-profile export down to 197 lines (YouTube/Google domains only) before it ever touched the VPS, stored at `/root/whisper-transcript-api/cookies.txt` with `600` permissions (root-only).
-3. **YouTube's "n challenge"** — a newer anti-bot measure requiring a JavaScript runtime to solve a signature challenge before certain formats become downloadable. Fixed with `pip install "yt-dlp[default]"` (installs the `yt-dlp-ejs` solver package) plus `--js-runtimes node` on every call, since yt-dlp's default JS runtime is Deno (not installed on this VPS) and Node.js (which *is* installed) needs explicit enabling.
+| Service | Entry pricing | Notes |
+|---|---|---|
+| **TranscriptAPI.com (chosen)** | 100 free credits (no card, no expiry noted), then **$5/mo for 1,000 credits** ($0.005/request) | Cheapest verified paid tier; median ~49ms response time; failed/rate-limited requests cost 0 credits |
+| Supadata.ai | $5-19/mo for 1,000 credits | Same ballpark at low volume, pricier at scale |
+| youtube-transcript.io | Token-based, harder to compare directly | |
+| Apify (transcript actors) | ~$0.001-0.012/video pay-as-you-go | Cheaper at high volume but adds Apify as another platform dependency |
 
-**Verified working**: a direct CLI test (cookies + `--js-runtimes node`) completed a full real download + audio extraction successfully. Repeated HTTP-endpoint tests immediately after that hit renewed bot-detection — almost certainly from the sheer volume of requests I made to the same IP in a short testing window, not a problem with the fix itself. If you see `"Sign in to confirm you're not a bot"` errors in real usage (not rapid testing), it's worth checking whether the cookies have expired and need re-export.
+For "a few dozen requests/month" the free tier alone likely covers this indefinitely; the $5/mo paid tier (1,000 credits) is wildly more headroom than needed if/when the free credits run out.
 
-**Cost of this fallback**: CPU-only Whisper transcription is slow — a 15-minute video can take 5-10+ minutes on this VPS's 2 vCPUs. The 10-minute HTTP timeout on the n8n side accounts for this. It only fires for the minority of videos with no official captions, so this cost is occasional, not per-video.
+**How it's wired**: `Fetch Transcript (TranscriptAPI)` — `GET https://transcriptapi.com/api/v2/youtube/transcript?video_url={{ $json.videoUrl }}&format=json`, Header Auth credential (`Authorization: Bearer <key>`), `neverError: true`, 30s timeout (this is a real API, not a multi-minute audio download, so no need for the old 10-minute Whisper timeout). Response shape is `{"transcript": [{"text": "...", "start": 0.0, "duration": ...}, ...], ...}`. `Format TranscriptAPI Transcript` joins the `text` fields into plain text and normalizes to the same `{transcript, videoTitle, videoUrl, hasTranscript}` shape `Parse Transcript XML` produces, so both paths converge into `Generate Article (Moonshot)` identically.
+
+**Cost of this fallback**: near-instant (no audio download/transcription wait), and only fires for the minority of videos with no official captions — so credit usage stays low even well past a few dozen digest replies a month.
 
 ## Known risks / most likely things to need adjusting
 
-1. **YouTube's watch-page HTML structure can change.** The `captionTracks` regex is a well-established pattern (same technique multiple popular transcript libraries use) but YouTube could alter their page structure at any time, which would break `Extract Caption Track URL`. Failure mode is graceful (falls through to the Whisper fallback, not a crash).
-2. **Region/consent-wall pages.** Some videos or network locations get served a cookie-consent interstitial instead of the real watch page. If `Extract Caption Track URL` consistently fails on videos that should have captions, this is the likely cause.
-3. **Whisper VPS cookies will expire.** When they do, both the "Sign in to confirm you're not a bot" error returns and the fallback stops working (degrading to the title-only placeholder again, not crashing) — re-export from the secondary account when this happens.
-4. **The Whisper service's `X-API-Key` is a hardcoded header value in the n8n node**, same category of thing already fixed for Moonshot/WordPress — worth moving to a proper credential if you want consistency.
+1. **YouTube's watch-page HTML structure can change.** The `captionTracks` regex is a well-established pattern (same technique multiple popular transcript libraries use) but YouTube could alter their page structure at any time, which would break `Extract Caption Track URL`. Failure mode is graceful (falls through to the TranscriptAPI fallback, not a crash).
+2. **Region/consent-wall pages.** Some videos or network locations get served a cookie-consent interstitial instead of the real watch page. If `Extract Caption Track URL` consistently fails on videos that should have captions, this is the likely cause — TranscriptAPI still covers these since it doesn't depend on the watch-page HTML.
+3. **TranscriptAPI free-tier credits will eventually run out** for high-reply-volume months — if `Format TranscriptAPI Transcript` starts returning the "no transcript" placeholder for videos that clearly have captions, check the TranscriptAPI dashboard for a 402/quota error before assuming the video itself has no transcript.
+4. **transcriptapi.com itself could also occasionally fail to find a transcript** (deleted/private videos, non-English-only videos without a matching language track) — same graceful degrade-to-title-only behavior as before, not a crash.
 
 ## Notes
 
-- Node types verified against current n8n source (`n8n-io/n8n` on GitHub), including the `options.response.response.responseFormat`/`outputPropertyName` path used to get raw HTML/XML text back from the HTTP Request nodes instead of n8n trying to auto-parse it as JSON, and `options.timeout` for the Whisper call's long wait.
+- Node types verified against current n8n source (`n8n-io/n8n` on GitHub), including the `options.response.response.responseFormat`/`outputPropertyName` path used to get raw HTML/XML text back from the HTTP Request nodes instead of n8n trying to auto-parse it as JSON.
 - This is a *separate* workflow from `claude-mcp-tools.json` — it isn't an MCP server, it's triggered by an actual email arriving, not by Claude calling a tool.
-- The Whisper VPS service is separate infrastructure from anything in the `claude-skills` GitHub repo — it lives only on the Hostinger VPS, managed via `pm2`, not deployed via git.
+- The old Whisper VPS service (`whisper_transcript_api.py`) is left deployed on the Hostinger VPS (`pm2` process `whisper-transcript-api`, port 3600) but is no longer called by this workflow — it's dormant infrastructure, not deleted, in case a future need for real audio transcription (as opposed to a commercial transcript lookup) comes up.

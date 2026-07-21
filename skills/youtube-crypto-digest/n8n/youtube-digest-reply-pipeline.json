@@ -290,8 +290,8 @@
       }
     },
     {
-      "id": "995c62c0-ad59-49f9-aad2-c673f2c51edc",
-      "name": "Transcribe via Whisper (VPS)",
+      "id": "9a10de6a-e47d-4a9e-8c6b-ac8d0aa366ca",
+      "name": "Fetch Transcript (TranscriptAPI)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -299,39 +299,42 @@
         380
       ],
       "parameters": {
-        "method": "POST",
-        "url": "http://213.210.13.146:3600/transcript",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
+        "method": "GET",
+        "url": "https://transcriptapi.com/api/v2/youtube/transcript",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
           "parameters": [
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "video_url",
+              "value": "={{ $json.videoUrl }}"
             },
             {
-              "name": "X-API-Key",
-              "value": "OMg60PawXzKbGb6rY1ef5ZHQIvplzSK9Uks9lOlYEtw"
+              "name": "format",
+              "value": "json"
             }
           ]
         },
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({videoUrl: $json.videoUrl}) }}",
         "options": {
-          "timeout": 600000,
+          "timeout": 30000,
           "response": {
             "response": {
               "neverError": true
             }
           }
         }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "SELECT_YOUR_TRANSCRIPTAPI_HEADER_AUTH_CREDENTIAL"
+        }
       }
     },
     {
       "id": "75ba69a8-264d-414d-863c-ec4cbbe3cd3c",
-      "name": "Format Whisper Transcript",
+      "name": "Format TranscriptAPI Transcript",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -341,7 +344,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const resp = $json;\nconst prev = $('Extract Caption Track URL').item.json;\nconst videoTitle = prev.videoTitle;\nconst videoUrl = prev.videoUrl;\n\nif (!resp || !resp.hasTranscript || !resp.transcript) {\n  return {\n    json: {\n      transcript: '(No auto-captions were available and Whisper transcription failed or found no speech. Article will be based on the title only -- expect a thin draft, review carefully.)',\n      videoTitle,\n      videoUrl,\n      hasTranscript: false,\n    }\n  };\n}\n\nreturn {\n  json: {\n    transcript: resp.transcript,\n    videoTitle,\n    videoUrl,\n    hasTranscript: true,\n  }\n};"
+        "jsCode": "const resp = $json;\nconst prev = $('Extract Caption Track URL').item.json;\nconst videoTitle = prev.videoTitle;\nconst videoUrl = prev.videoUrl;\n\nconst segments = resp && resp.transcript;\nif (!Array.isArray(segments) || segments.length === 0) {\n  return {\n    json: {\n      transcript: '(No auto-captions were available and the TranscriptAPI fallback found no transcript for this video -- likely a genuinely caption-less or private/removed video. Article will be based on the title only -- expect a thin draft, review carefully.)',\n      videoTitle,\n      videoUrl,\n      hasTranscript: false,\n    }\n  };\n}\n\nconst text = segments.map(s => s.text).join(' ').replace(/\\s+/g, ' ').trim();\n\nreturn {\n  json: {\n    transcript: (text || '(Transcript was empty after parsing.)').slice(0, 12000),\n    videoTitle,\n    videoUrl,\n    hasTranscript: text.length > 0,\n  }\n};"
       }
     }
   ],
@@ -468,25 +471,25 @@
         ],
         [
           {
-            "node": "Transcribe via Whisper (VPS)",
+            "node": "Fetch Transcript (TranscriptAPI)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Transcribe via Whisper (VPS)": {
+    "Fetch Transcript (TranscriptAPI)": {
       "main": [
         [
           {
-            "node": "Format Whisper Transcript",
+            "node": "Format TranscriptAPI Transcript",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format Whisper Transcript": {
+    "Format TranscriptAPI Transcript": {
       "main": [
         [
           {
