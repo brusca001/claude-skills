@@ -232,7 +232,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForEachItem",
-        "jsCode": "const blocks = $json.content || [];\nconst textBlock = blocks.find(b => b.type === 'text');\nconst raw = textBlock ? textBlock.text : '';\n\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Parse Transcript XML').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
+        "jsCode": "const blocks = $json.content || [];\nconst textBlock = blocks.find(b => b.type === 'text');\nconst raw = textBlock ? textBlock.text : '';\n\nlet parsed;\ntry {\n  const cleaned = raw.trim().replace(/^```json\\n?/, '').replace(/```$/, '');\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    title: 'Draft: ' + $('Extract Caption Track URL').item.json.videoTitle,\n    content: raw,\n  };\n}\nreturn { json: parsed };"
       }
     },
     {
